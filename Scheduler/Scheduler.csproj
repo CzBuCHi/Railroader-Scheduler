@@ -28,6 +28,7 @@
     <GameAssembly Include="UnityEngine.UI" />
     <GameAssembly Include="Unity.TextMeshPro" />
     <GameAssembly Include="Railloader.Interchange" />
-    <GameAssembly Include="Serilog" />    
+    <GameAssembly Include="Serilog" />   
+    <GameAssembly Include="CarInspectorResizer" />
   </ItemGroup>
 </Project>
