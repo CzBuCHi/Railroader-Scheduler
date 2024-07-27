@@ -16,7 +16,7 @@ public static class CarInspectorPatches {
     [HarmonyPatch(typeof(CarInspector), "Populate")]
     public static void Populate(ref Window ____window) {
         var windowAutoHeight = ____window.gameObject!.GetComponent<CarInspectorAutoHeightBehavior>()!;
-        windowAutoHeight.ExpandTab("orders", 30);
+        windowAutoHeight.ExpandTab("orders", 45);
         windowAutoHeight.UpdateWindowHeight();
     }
 
@@ -24,10 +24,8 @@ public static class CarInspectorPatches {
     [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
     public static void PopulateAIPanel(UIPanelBuilder builder, Car ____car, ref Window ____window) {
         builder.AddField("",
-            builder.ButtonStrip(strip =>
-                strip.AddButton("Scheduler", () => SchedulerPlugin.SchedulerDialog.ShowWindow((BaseLocomotive)____car)))!
+            builder.ButtonStrip(strip => strip.AddButton("Scheduler", () => SchedulerPlugin.SchedulerDialog.ShowWindow()))!
         );
-
     }
 
 }

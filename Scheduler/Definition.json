@@ -5,5 +5,11 @@
     "version": "$(AssemblyVersion)",
     "assemblies": [
         "Scheduler"
+    ],
+    "requires": [
+        {
+            "id": "CarInspectorResizer",
+            "notBefore": "1.0.0"
+        }
     ]
 }

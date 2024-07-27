@@ -1,11 +1,10 @@
 namespace Scheduler.UI;
 
+using System.Collections.Generic;
 using System.Linq;
 using global::UI.Builder;
 using global::UI.Common;
-using Model;
 using Scheduler.Data;
-using Scheduler.Managers;
 
 public sealed class SchedulerDialog {
 
@@ -16,11 +15,16 @@ public sealed class SchedulerDialog {
     }
 
     private bool _Populated;
+    private bool _AddCommand;
+    private int _SelectedCommandIndex;
+    private readonly List<string> _Commands = ["Connect Air", "Release Handbrakes", "Set Handbrake", "Uncouple", "Set Switch", "Restore Switch"];
+    private bool _Front;
+    private bool _Normal;
+    private List<string> _TrainCarsCached = null!;
+    private int _SelectedTrainCar;
 
-    private readonly ScheduleManager _Manager = new();
-
-    public void ShowWindow(BaseLocomotive locomotive) {
-        _Manager.Locomotive = locomotive;
+    public void ShowWindow() {
+        _TrainCarsCached = TrainController.Shared!.SelectedTrain!.Select((o, i) => $"Car #{i} (" + o.DisplayName + ")").ToList();
 
         if (!_Populated) {
             SchedulerPlugin.UiHelper.PopulateWindow(_Window, BuildWindow);
@@ -33,43 +37,108 @@ public sealed class SchedulerDialog {
     }
 
     private void BuildWindow(UIPanelBuilder builder) {
-        _Manager.Builder = builder;
-        _Manager.NewScheduleName = "Schedule #" + _Manager.Schedules.Count;
+        SchedulerPlugin.Manager.Builder = builder;
+        SchedulerPlugin.Manager.NewScheduleName = "Schedule #" + SchedulerPlugin.Manager.Schedules.Count;
 
         builder.AddSection("Record new schedule", section => {
             section.ButtonStrip(strip => {
-                if (!_Manager.IsRecording) {
-                    if (_Manager.NewSchedule != null) {
-                        strip.AddButton("Continue", _Manager.Continue);
-                    } else {
-                        strip.AddButton("Start", _Manager.Start);
-                    }
+                if (SchedulerPlugin.Recorder == null) {
+                    strip.AddButton("Start", SchedulerPlugin.Manager.Start);
                 } else {
-                    strip.AddButton("Stop", _Manager.Stop);
+                    strip.AddButton("Stop", SchedulerPlugin.Manager.Stop);
                 }
 
-                if (_Manager.NewSchedule != null) {
-                    strip.AddButton("Save", _Manager.Save);
-                    strip.AddButton("Discard", _Manager.Discard);
+                if (!SchedulerPlugin.Manager.IsRecording) {
+                    strip.AddButton("Save", SchedulerPlugin.Manager.Save);
+                    strip.AddButton("Discard", SchedulerPlugin.Manager.Discard);
                 }
             });
 
-            section.AddField("Name", section.AddInputField(_Manager.NewScheduleName, o => _Manager.NewScheduleName = o, characterLimit: 50)!);
+            section.AddField("Name", section.AddInputField(SchedulerPlugin.Manager.NewScheduleName, o => SchedulerPlugin.Manager.NewScheduleName = o, characterLimit: 50)!);
         });
 
-        builder.AddListDetail(_Manager.Schedules.Select(GetScheduleDataItem), _Manager.SelectedSchedule, (detail, schedule) => {
-            if (_Manager.NewSchedule != null) {
-                schedule = _Manager.NewSchedule!;
+        var listItems = SchedulerPlugin.Manager.Schedules.Select(o => new UIPanelBuilder.ListItem<Schedule>(o.Name, o, "Saved schedules", o.Name));
+        builder.AddListDetail(listItems, SchedulerPlugin.Manager.SelectedSchedule, (detail, schedule) => {
+            if (SchedulerPlugin.Recorder != null) {
+                schedule = SchedulerPlugin.Recorder.Schedule;
             }
 
             if (schedule == null) {
-                detail.AddLabel(_Manager.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
+                detail.AddLabel(SchedulerPlugin.Manager.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
             } else {
-                if (_Manager.NewSchedule == null) {
+                if (SchedulerPlugin.Recorder == null) {
                     detail.ButtonStrip(strip => {
-                        strip.AddButton("Execute", () => _Manager.Execute(schedule));
-                        strip.AddButton("Remove", () => _Manager.Remove(schedule));
+                        strip.AddButton("Execute", () => SchedulerPlugin.Manager.Execute(schedule, TrainController.Shared!.SelectedLocomotive!));
+                        strip.AddButton("Remove", () => SchedulerPlugin.Manager.Remove(schedule));
                     });
+                } else {
+                    detail.ButtonStrip(strip => {
+                        strip.AddButton("Add command", () => {
+                            _AddCommand = true;
+                            detail.Rebuild();
+                        });
+                    });
+
+                    if (_AddCommand) {
+                        detail.AddDropdown(_Commands, _SelectedCommandIndex, o => {
+                            _SelectedCommandIndex = o;
+                            detail.Rebuild();
+                        });
+                        switch (_SelectedCommandIndex) {
+                            case 0: // "Connect Air",
+                            case 1: // "Release Handbrakes",
+                                break;
+                            case 2: // "Set Handbrake",
+                            case 3: // "Uncouple",
+                                detail.AddDropdown(_TrainCarsCached, _SelectedTrainCar, o => {
+                                    _SelectedTrainCar = o;
+                                    detail.Rebuild();
+                                });
+                                break;
+                            case 4: // "Set Switch",
+                                detail.AddField("Location", detail.ButtonStrip(strip => {
+                                    strip.AddButtonSelectable("Front of train", _Front, () => _Front = true);
+                                    strip.AddButtonSelectable("Rear of train", !_Front, () => _Front = false);
+                                })!);
+                                detail.AddField("Orientation", detail.ButtonStrip(strip => {
+                                    strip.AddButtonSelectable("Normal", _Normal, () => _Normal = true);
+                                    strip.AddButtonSelectable("Reversed", !_Normal, () => _Normal = false);
+                                })!);
+                                break;
+                            case 5: // "Restore Switch"
+                                detail.AddField("Location", detail.ButtonStrip(strip => {
+                                    strip.AddButtonSelectable("Front of train", _Front, () => _Front = true);
+                                    strip.AddButtonSelectable("Rear of train", !_Front, () => _Front = false);
+                                })!);
+                                break;
+                        }
+
+                        detail.AddButton("Confirm", () => {
+                            switch (_SelectedCommandIndex) {
+                                case 0: // "Connect Air",
+                                    SchedulerPlugin.Recorder.ConnectAir();
+                                    break;
+                                case 1: // "Release Handbrakes",
+                                    SchedulerPlugin.Recorder.ReleaseHandbrakes();
+                                    break;
+                                case 2: // "Set Handbrake",
+                                    SchedulerPlugin.Recorder.SetHandbrake(_SelectedTrainCar);
+                                    break;
+                                case 3: // "Uncouple",
+                                    SchedulerPlugin.Recorder.Uncouple(_SelectedTrainCar);
+                                    break;
+                                case 4: // "Set Switch",
+                                    SchedulerPlugin.Recorder.SetSwitch(_Front, _Normal);
+                                    break;
+                                case 5: // "Restore Switch"
+                                    SchedulerPlugin.Recorder.RestoreSwitch(_Front);
+                                    break;
+                            }
+
+                            _AddCommand = false;
+                            detail.Rebuild();
+                        });
+                    }
                 }
 
                 detail.VScrollView(view => {
@@ -79,11 +148,6 @@ public sealed class SchedulerDialog {
                 });
             }
         });
-        return;
-
-        UIPanelBuilder.ListItem<Schedule> GetScheduleDataItem(Schedule data) {
-            return new UIPanelBuilder.ListItem<Schedule>(data.Name, data, "Saved schedules", data.Name);
-        }
     }
 
 }

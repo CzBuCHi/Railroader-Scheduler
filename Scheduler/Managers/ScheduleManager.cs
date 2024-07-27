@@ -2,7 +2,6 @@ namespace Scheduler.Managers;
 
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using global::UI.Builder;
 using Model;
 using Scheduler.Data;
@@ -10,40 +9,17 @@ using UnityEngine;
 
 public sealed class ScheduleManager : MonoBehaviour {
 
-    /*
-
-record commands:
-
-MOVE                    * AutoEngineerOrdersHelper.SetOrdersValue(AutoEngineerMode? mode = null, bool? forward = null,int? maxSpeedMph = null, float? distance = null)
-SET_SWITCH              Messenger.Default.Send<SwitchThrownDidChange>(new SwitchThrownDidChange(this));
-UNCOUPLE                ? void ApplyEndGearChange(Car.LogicalEnd logicalEnd, Car.EndGearStateKey endGearStateKey, float f)
-SET_HANDBRAKE           * CarPropertyChanges.SetHandbrake(this Car car, bool apply)
-
-special commands: (game do not have buttons for those - need to add them manually in SchedulerDialog
-
-CONNECT_AIR             * Jobs.ConnectAir
-RELEASE_HANDBRAKES      * Jobs.ReleaseAllHandbrakes
-RESTORE_SWITCH
-
- */
     public List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
     public UIPanelBuilder Builder;
-    public BaseLocomotive Locomotive = null!;
 
     public readonly UIState<string?> SelectedSchedule = new(null);
 
     public bool IsRecording;
-    public Schedule? NewSchedule;
     public string NewScheduleName = "";
 
     public void Start() {
         IsRecording = true;
-        NewSchedule = new Schedule();
-        Builder.Rebuild();
-    }
-
-    public void Continue() {
-        IsRecording = true;
+        SchedulerPlugin.Recorder = new ScheduleRecorder();
         Builder.Rebuild();
     }
 
@@ -53,9 +29,10 @@ RESTORE_SWITCH
     }
 
     public void Save() {
-        NewSchedule!.Name = NewScheduleName;
-        Schedules.Add(NewSchedule!);
-        NewSchedule = null;
+        var schedule = SchedulerPlugin.Recorder!.Schedule;
+        schedule.Name = NewScheduleName;
+        Schedules.Add(schedule);
+        SchedulerPlugin.Recorder = null;
 
         NewScheduleName = "Schedule #" + Schedules.Count;
         Builder.Rebuild();
@@ -63,12 +40,12 @@ RESTORE_SWITCH
     }
 
     public void Discard() {
-        NewSchedule = null;
+        SchedulerPlugin.Recorder = null;
         Builder.Rebuild();
     }
 
-    public void Execute(Schedule schedule) {
-        StartCoroutine(ExecuteCoroutine(schedule));
+    public void Execute(Schedule schedule, BaseLocomotive locomotive) {
+        StartCoroutine(ExecuteCoroutine(schedule, locomotive));
     }
 
     public void Remove(Schedule schedule) {
@@ -77,21 +54,19 @@ RESTORE_SWITCH
         Builder.Rebuild();
     }
 
-
-    private IEnumerator ExecuteCoroutine(Schedule schedule) {
+    private IEnumerator ExecuteCoroutine(Schedule schedule, BaseLocomotive locomotive) {
         foreach (var command in schedule.Commands) {
-            ExecuteCommand(command);
+            ExecuteCommand(command, locomotive);
             yield return new WaitUntil(() => _CommandCompleted);
         }
     }
 
     private bool _CommandCompleted;
 
-    private void ExecuteCommand(ScheduleCommand command) {
+    private void ExecuteCommand(ScheduleCommand command, BaseLocomotive locomotive) {
         _CommandCompleted = false;
 
-        var consist = Locomotive.set.Cars.ToArray();
-
+        AIWorker.ExecuteCommand(command, locomotive);
         if (command.CommandType == ScheduleCommandType.MOVE) {
             return;
         }

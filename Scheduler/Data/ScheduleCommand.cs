@@ -16,57 +16,21 @@ public enum ScheduleCommandType {
 
 }
 
-public sealed class ScheduleCommand {
+public sealed class ScheduleCommand(ScheduleCommandType commandType, bool? forward = null, int? maxSpeed = null, float? distance = null, bool? switchToNormal = null, int? index = null) {
 
-    public static ScheduleCommand Move(bool forward, int? maxSpeed, float distance) {
-        return new ScheduleCommand(ScheduleCommandType.MOVE, forward, maxSpeed, distance);
-    }
 
-    public static ScheduleCommand ConnectAir() {
-        return new ScheduleCommand(ScheduleCommandType.CONNECT_AIR);
-    }
-
-    public static ScheduleCommand ReleaseHandbrakes() {
-        return new ScheduleCommand(ScheduleCommandType.RELEASE_HANDBRAKES);
-    }
-
-    public static ScheduleCommand SetSwitch(bool forward, bool switchToNormal) {
-        return new ScheduleCommand(ScheduleCommandType.SET_SWITCH, forward: forward, switchToNormal: switchToNormal);
-    }
-
-    public static ScheduleCommand Uncouple(int index) {
-        return new ScheduleCommand(ScheduleCommandType.UNCOUPLE, index: index);
-    }
-
-    public static ScheduleCommand SetHandbrake(int index) {
-        return new ScheduleCommand(ScheduleCommandType.SET_HANDBRAKE, index: index);
-    }
-
-    public static ScheduleCommand RestoreSwitch(bool forward) {
-        return new ScheduleCommand(ScheduleCommandType.RESTORE_SWITCH, forward);
-    }
-
-    private ScheduleCommand(ScheduleCommandType commandType, bool? forward = null, int? maxSpeed = null, float? distance = null, bool? switchToNormal = null, int? index = null) {
-        CommandType = commandType;
-        Forward = forward;
-        MaxSpeed = maxSpeed;
-        Distance = distance;
-        SwitchToNormal = switchToNormal;
-        CarIndex = index;
-    }
-
-    public ScheduleCommandType CommandType { get; }
+    public ScheduleCommandType CommandType { get; } = commandType;
 
     // MOVE
-    public bool? Forward { get; }
-    public int? MaxSpeed { get; } // null = yard mode
-    public float? Distance { get; }
+    public bool? Forward { get; } = forward;
+    public int? MaxSpeed { get; } = maxSpeed; // null = yard mode
+    public float? Distance { get; } = distance;
 
     // SET_SWITCH
-    public bool? SwitchToNormal { get; } // set switch to normal
+    public bool? SwitchToNormal { get; } = switchToNormal;
 
     // UNCOUPLE, SET_HANDBRAKE
-    public int? CarIndex { get; } // car index: 0 = first, 1 = second, -1 = last, -2, second from end
+    public int? CarIndex { get; } = index;
 
     public override string ToString() {
         return CommandType switch {
@@ -97,4 +61,5 @@ public sealed class ScheduleCommand {
             return hashCode;
         }
     }
+
 }

@@ -4,6 +4,7 @@ using global::UI.Builder;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Railloader;
+using Scheduler.Managers;
 using Scheduler.UI;
 
 [UsedImplicitly]
@@ -14,6 +15,8 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     public static IModdingContext Context { get; private set; } = null!;
     public static IUIHelper UiHelper { get; private set; } = null!;
     public static Settings Settings { get; private set; } = null!;
+    public static readonly ScheduleManager Manager = new();
+    public static ScheduleRecorder? Recorder { get; set; }
 
     private readonly Serilog.ILogger _Logger = Serilog.Log.ForContext<SchedulerPlugin>()!;
 
