@@ -32,3 +32,20 @@ public sealed class SchedulerDialog {
     }
 
 }
+
+/*
+
+record commands:
+
+MOVE                    * AutoEngineerOrdersHelper.SetOrdersValue(AutoEngineerMode? mode = null, bool? forward = null,int? maxSpeedMph = null, float? distance = null)
+SET_SWITCH              Messenger.Default.Send<SwitchThrownDidChange>(new SwitchThrownDidChange(this));
+UNCOUPLE                ? void ApplyEndGearChange(Car.LogicalEnd logicalEnd, Car.EndGearStateKey endGearStateKey, float f)
+SET_HANDBRAKE           * CarPropertyChanges.SetHandbrake(this Car car, bool apply)
+
+special commands: (game do not have buttons for those - need to add them manually in SchedulerDialog
+
+CONNECT_AIR             * Jobs.ConnectAir
+RELEASE_HANDBRAKES      * Jobs.ReleaseAllHandbrakes
+RESTORE_SWITCH
+
+ */

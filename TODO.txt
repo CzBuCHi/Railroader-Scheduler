@@ -1,0 +1,30 @@
+Create basic commands for scheduler to execute:
+
+Move (yard/road as speed) (forward/backward) and stop (before/after) node (aka switch)
+Connect air
+Release handbrakes
+Set handbrake on nth car
+Uncouple nth car
+Set switch in (front/back) of train [trina needs to be stopped, max 10m from switch]
+Restore switch to its original position (store when `Set switch` called)
+
+
+Record schedule
+1) start recording
+2) add schedule commands manually (wait for train to stop before adding more)
+3) Save schedule with unque name (save in mod settings)
+
+Execute schedule
+1) pick locomotive
+2) pick schedule by name
+3) hit 'execute'
+
+ScheduleRunner will execute commands in sequence
+- move command end detection: use observer on persistence.PlannerStatus to detect correct message
+
+
+inspiration: 
+Railroader-SmartOrders
+Railroader-SmartOrders_SCHEDULER
+YardAiExtended
+YardAiExtended2
