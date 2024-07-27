@@ -1,0 +1,9 @@
+{
+    "manifestVersion": 1,
+    "id": "Scheduler",
+    "name": "Scheduler",
+    "version": "$(AssemblyVersion)",
+    "assemblies": [
+        "Scheduler"
+    ]
+}
