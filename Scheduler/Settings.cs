@@ -3,7 +3,9 @@
 using System.Collections.Generic;
 using Scheduler.Data;
 
-public class Settings {
+internal class Settings {
+
+    public bool Debug { get; set; }
 
     public List<Schedule> Schedules { get; set; } = new();
 

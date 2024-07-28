@@ -1,13 +1,18 @@
 namespace Scheduler.Managers;
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using global::UI.Builder;
+using KeyValue.Runtime;
 using Model;
+using Model.AI;
+using Newtonsoft.Json.Linq;
 using Scheduler.Data;
+using Scheduler.Data.Commands;
 using UnityEngine;
 
-public sealed class ScheduleManager : MonoBehaviour {
+internal sealed class ScheduleManager : MonoBehaviour {
 
     public List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
     public UIPanelBuilder Builder;
@@ -17,30 +22,31 @@ public sealed class ScheduleManager : MonoBehaviour {
     public bool IsRecording;
     public string NewScheduleName = "";
 
-    public void Start() {
+    public void StartRecording() {
         IsRecording = true;
-        SchedulerPlugin.Recorder = new ScheduleRecorder();
+        SchedulerPlugin.NewSchedule = new Schedule();
         Builder.Rebuild();
     }
 
-    public void Stop() {
+    public void StopRecording() {
         IsRecording = false;
         Builder.Rebuild();
     }
 
     public void Save() {
-        var schedule = SchedulerPlugin.Recorder!.Schedule;
+        var schedule = SchedulerPlugin.NewSchedule!;
         schedule.Name = NewScheduleName;
         Schedules.Add(schedule);
-        SchedulerPlugin.Recorder = null;
+        SchedulerPlugin.NewSchedule = null;
 
         NewScheduleName = "Schedule #" + Schedules.Count;
         Builder.Rebuild();
         SelectedSchedule.Value = NewScheduleName;
+        SchedulerPlugin.SaveSettings();
     }
 
     public void Discard() {
-        SchedulerPlugin.Recorder = null;
+        SchedulerPlugin.NewSchedule = null;
         Builder.Rebuild();
     }
 
@@ -52,6 +58,7 @@ public sealed class ScheduleManager : MonoBehaviour {
         Schedules.Remove(schedule);
         SelectedSchedule.Value = null;
         Builder.Rebuild();
+        SchedulerPlugin.SaveSettings();
     }
 
     private IEnumerator ExecuteCoroutine(Schedule schedule, BaseLocomotive locomotive) {
@@ -63,15 +70,45 @@ public sealed class ScheduleManager : MonoBehaviour {
 
     private bool _CommandCompleted;
 
-    private void ExecuteCommand(ScheduleCommand command, BaseLocomotive locomotive) {
+    private static readonly Serilog.ILogger _Logger = Serilog.Log.ForContext(typeof(ScheduleManager))!;
+
+    private void ExecuteCommand(IScheduleCommand command, BaseLocomotive locomotive) {
         _CommandCompleted = false;
 
-        AIWorker.ExecuteCommand(command, locomotive);
-        if (command.CommandType == ScheduleCommandType.MOVE) {
-            return;
+        _Logger.Information($"AIWorker [{locomotive}] Executing {command}");
+        SchedulerPlugin.DebugMessage($"Executing {command}");
+
+        try {
+            command.Execute(locomotive);
+            if (command is ScheduleCommandMove) {
+                DisposableWrap disposable = new DisposableWrap();
+                var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
+                disposable.Disposable = persistence.ObserveOrders(orders => {
+                    SchedulerPlugin.DebugMessage("Status: " + orders);
+                    if (!orders.Enabled) {
+                        _CommandCompleted = true;
+                        disposable.Dispose();
+                    }
+                });
+                return;
+            }
+
+        } catch (Exception e) {
+            global::UI.Console.Console.shared!.AddLine("[AI]" + e.Message);
+            throw;
         }
 
         _CommandCompleted = true;
+    }
+
+    private class DisposableWrap : IDisposable {
+
+        public IDisposable? Disposable { get; set; }
+
+        public void Dispose() {
+            Disposable?.Dispose();
+        }
+
     }
 
 }

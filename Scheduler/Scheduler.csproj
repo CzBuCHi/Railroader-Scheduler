@@ -11,12 +11,6 @@
     <Content Include="*.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="Extensions\**" />
-    <Content Remove="Extensions\**" />
-    <EmbeddedResource Remove="Extensions\**" />
-    <None Remove="Extensions\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="System.Core" />
     <GameAssembly Include="Assembly-CSharp" />
     <GameAssembly Include="0Harmony" />
@@ -29,6 +23,7 @@
     <GameAssembly Include="Unity.TextMeshPro" />
     <GameAssembly Include="Railloader.Interchange" />
     <GameAssembly Include="Serilog" />   
+    <GameAssembly Include="Newtonsoft.Json" />   
     <GameAssembly Include="CarInspectorResizer" />
   </ItemGroup>
 </Project>

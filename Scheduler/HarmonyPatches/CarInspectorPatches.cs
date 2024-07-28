@@ -24,7 +24,7 @@ public static class CarInspectorPatches {
     [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
     public static void PopulateAIPanel(UIPanelBuilder builder, Car ____car, ref Window ____window) {
         builder.AddField("",
-            builder.ButtonStrip(strip => strip.AddButton("Scheduler", () => SchedulerPlugin.SchedulerDialog.ShowWindow()))!
+            builder.ButtonStrip(strip => strip.AddButton("Scheduler", () => SchedulerPlugin.SchedulerDialog.ShowWindow((BaseLocomotive)____car)))!
         );
     }
 

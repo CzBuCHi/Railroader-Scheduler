@@ -6,5 +6,6 @@ public sealed class Schedule {
 
     public string Name { get; set; } = null!;
 
-    public List<ScheduleCommand> Commands { get; } = new();
+    public List<IScheduleCommand> Commands { get; } = new();
+
 }
