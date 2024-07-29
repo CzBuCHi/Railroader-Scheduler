@@ -8,4 +8,12 @@ public sealed class Schedule {
 
     public List<IScheduleCommand> Commands { get; } = new();
 
+    public Schedule Clone() {
+        var schedule = new Schedule { Name = Name };
+        foreach (var command in Commands) {
+            schedule.Commands.Add(command.Clone());
+        }
+
+        return schedule;
+    }
 }

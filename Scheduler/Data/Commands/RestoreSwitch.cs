@@ -26,6 +26,9 @@ public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand 
         }
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandRestoreSwitch(Front);
+    }
 }
 
 public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandRestoreSwitch> {

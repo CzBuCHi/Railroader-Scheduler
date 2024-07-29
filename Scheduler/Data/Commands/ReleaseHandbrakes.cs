@@ -15,6 +15,9 @@ public sealed class ScheduleCommandReleaseHandbrakes : IScheduleCommand {
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandReleaseHandbrakes();
+    }
 }
 
 public sealed class ScheduleCommandReleaseHandbrakesSerializer : ScheduleCommandSerializerBase<ScheduleCommandReleaseHandbrakes> {

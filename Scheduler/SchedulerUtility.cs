@@ -27,12 +27,13 @@ public static class SchedulerUtility {
 
     public static TrackNode GetNextSwitch(TrackNode node, TrackSegment startSegment) {
         var graph = TrainController.Shared!.graph!;
+        var start = true;
         for (var index = 0; index < 50; ++index) {
-            if (graph.NodeIsDeadEnd(node, out _)) {
+            if (!start && graph.NodeIsDeadEnd(node, out _)) {
                 return node;
             }
 
-            if (graph.IsSwitch(node)) {
+            if (!start && graph.IsSwitch(node)) {
                 return node;
             }
 
@@ -47,6 +48,7 @@ public static class SchedulerUtility {
                 var end2 = new Location(segment, 0.0f, segment.a == node ? TrackSegment.End.A : TrackSegment.End.B).EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
                 startSegment = segment;
                 node = startSegment.NodeForEnd(end2)!;
+                start = true;
             }
         }
 
@@ -208,7 +210,7 @@ public static class SchedulerUtility {
             var node = segment!.NodeForEnd(segmentEnd)!;
 
             graph.DecodeSwitchAt(node, out var switchEnterSegment, out _, out _);
-            var nodeFoulingDistance = graph.CalculateFoulingDistance(node);
+            var nodeFoulingDistance = graph.CalculateFoulingDistance(node) + 6.1f;
 
             var facingSwitchEntrance = switchEnterSegment == segment;
 

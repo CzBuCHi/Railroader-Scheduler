@@ -30,6 +30,9 @@ public sealed class ScheduleCommandConnectAir : IScheduleCommand {
         }
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandConnectAir();
+    }
 }
 
 public sealed class ScheduleCommandConnectAirSerializer : ScheduleCommandSerializerBase<ScheduleCommandConnectAir> {

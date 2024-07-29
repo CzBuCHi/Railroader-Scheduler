@@ -50,16 +50,22 @@ public sealed class ScheduleCommandUncouple(int carIndex) : IScheduleCommand {
         }
 
         SchedulerPlugin.DebugMessage($"Uncoupling {carToDisconnect!.DisplayName} ({carToDisconnect.Archetype} | {index}).");
-    
-
+        
         var newEndCarEndToDisconnect = newEndCar!.CoupledTo(Car.LogicalEnd.A) == carToDisconnect ? Car.LogicalEnd.A : Car.LogicalEnd.B;
         var carToDisconnectEndToDisconnect = carToDisconnect!.CoupledTo(Car.LogicalEnd.A) == newEndCar ? Car.LogicalEnd.A : Car.LogicalEnd.B;
 
-        newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.CutLever, 1f);
-        newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.Anglecock, 0f);
+        carToDisconnect.ApplyEndGearChange(carToDisconnectEndToDisconnect, Car.EndGearStateKey.IsAirConnected, false);
         carToDisconnect.ApplyEndGearChange(carToDisconnectEndToDisconnect, Car.EndGearStateKey.Anglecock, 0f);
+
+        newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.IsAirConnected, false);
+        newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.Anglecock, 0f);
+
+        newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.CutLever, 1f);
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandUncouple(CarIndex);
+    }
 }
 
 public sealed class ScheduleCommandUncoupleSerializer : ScheduleCommandSerializerBase<ScheduleCommandUncouple> {

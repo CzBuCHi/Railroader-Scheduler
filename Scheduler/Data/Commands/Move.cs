@@ -45,6 +45,9 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
         helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandMove(Forward, Before, SwitchCount, MaxSpeed);
+    }
 }
 
 public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBase<ScheduleCommandMove> {

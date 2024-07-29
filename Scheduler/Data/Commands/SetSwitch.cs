@@ -20,20 +20,30 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ISched
         var startLocation = SchedulerUtility.StartLocation(Front, locomotive);
         var node = SchedulerUtility.GetNextSwitchByLocation(startLocation);
 
+        SchedulerPlugin.DebugMessage($"NODE: {node.id}, Segment: {startLocation.segment.id}");
+
         // if closest switch is fouled my train, find next switch
-        Graph.Shared!.DecodeSwitchAt(node, out var enter, out _, out _);
-        if (startLocation.segment != enter) {
-            node = SchedulerUtility.GetNextSwitch(node, enter!);
+        if (Graph.Shared.DecodeSwitchAt(node, out var enter, out _, out _) && startLocation.segment != enter) {
+            var distance = startLocation.DistanceTo(node);
+            var foulingDistance = Graph.Shared.CalculateFoulingDistance(node);
+            if (distance < foulingDistance) {
+                SchedulerPlugin.DebugMessage($"Fouling switch at {node.id}");
+                node = SchedulerUtility.GetNextSwitch(node, enter);
+            }
         }
 
         if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive)) {
             return;
         }
 
+        SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         SchedulerPlugin.Settings.SwitchStates[node.id] = node.isThrown;
         node.isThrown = IsThrown;
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandSetSwitch(Front, IsThrown);
+    }
 }
 
 public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetSwitch> {

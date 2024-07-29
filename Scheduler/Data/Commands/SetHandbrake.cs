@@ -30,6 +30,9 @@ public sealed class ScheduleCommandSetHandbrake(int carIndex) : IScheduleCommand
         car!.SetHandbrake(true);
     }
 
+    public IScheduleCommand Clone() {
+        return new ScheduleCommandSetHandbrake(CarIndex);
+    }
 }
 
 public sealed class ScheduleCommandSetHandbrakeSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetHandbrake> {

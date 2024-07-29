@@ -11,4 +11,5 @@ public interface IScheduleCommand {
 
     void Execute(BaseLocomotive locomotive);
 
+    IScheduleCommand Clone();
 }
