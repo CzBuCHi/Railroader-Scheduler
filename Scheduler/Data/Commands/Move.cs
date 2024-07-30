@@ -1,16 +1,17 @@
-﻿namespace Scheduler.Data.Commands;
-
+﻿using System.Collections.Generic;
+using System.Linq;
 using Game.Messages;
-using global::UI.Builder;
-using global::UI.EngineControls;
-using HarmonyLib;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
-using UnityEngine;
+using Track;
+using UI.Builder;
+using UI.EngineControls;
 
-public sealed class ScheduleCommandMove(bool forward, bool before, int switchCount, int? maxSpeed) : IScheduleCommand {
+namespace Scheduler.Data.Commands;
 
+public sealed class ScheduleCommandMove(bool forward, bool before, int switchCount, int? maxSpeed) : IScheduleCommand
+{
     public string Identifier => "Move";
 
     public bool Forward { get; } = forward;
@@ -19,30 +20,54 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
     public int SwitchCount { get; } = switchCount;
 
     public override string ToString() {
-        return $"Move {(Forward ? "forward" : "back")} at {(MaxSpeed == null ? "yard Speed" : $"max. speed {MaxSpeed} MPH")} and " +
-               $"stop {(Before ? "before" : "after")} {GetOrdinal(SwitchCount)} switch.";
+        return
+            $"Move {(Forward ? "forward" : "back")} at {(MaxSpeed == null ? "yard Speed" : $"max. speed {MaxSpeed} MPH")} and " +
+            $"stop {(Before ? "before" : "after")} {GetOrdinal(SwitchCount)} switch.";
     }
 
     private static string GetOrdinal(int number) {
         return number % 100 is >= 11 and <= 13
             ? number + "th"
             : (number % 10) switch {
-                  1 => number + "st",
-                  2 => number + "nd",
-                  3 => number + "rd",
-                  _ => number + "th"
-              };
+                1 => number + "st",
+                2 => number + "nd",
+                3 => number + "rd",
+                _ => number + "th"
+            };
     }
 
     public void Execute(BaseLocomotive locomotive) {
-        var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
-        var distance = SchedulerUtility.GetDistanceForSwitchOrder(SwitchCount, false, Before, locomotive, persistence);
-        if (distance == null) {
-            return;
+        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Forward ? Car.End.F : Car.End.R);
+
+        var items = new List<(TrackSegment Segment, TrackNode Node)>();
+        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
+            items.Add(item);
+            if (Graph.Shared!.IsSwitch(item.Node)) {
+                break;
+            }
         }
 
+        foreach (var (_, node) in items) {
+            SchedulerPlugin.DebugMessage($"NODE: {node.id}");
+        }
+
+        var distance = SchedulerUtility.Distance(startLocation, items);
+
+        SchedulerPlugin.DebugMessage($"Distance: {distance}");
+        var (lastSegment, lastNode) = items.Last();
+        var foulingDistance = Graph.Shared!.CalculateFoulingDistance(lastNode);
+        SchedulerPlugin.DebugMessage($"FoulingDistance: {foulingDistance}");
+
+        if (Graph.Shared.DecodeSwitchAt(lastNode, out var enter, out _, out _) && lastSegment != enter) {
+            distance -= foulingDistance + 6.1f;
+        }
+
+        SchedulerPlugin.DebugMessage($"Final distance: {distance}");
+
+        var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
         var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
-        helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
+        helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed,
+            distance);
     }
 
     public IScheduleCommand Clone() {
@@ -50,8 +75,8 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
     }
 }
 
-public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBase<ScheduleCommandMove> {
-
+public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBase<ScheduleCommandMove>
+{
     private bool? _Forward;
     private bool? _Before;
     private int? _SwitchCount;
@@ -100,11 +125,10 @@ public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBas
             writer.WriteValue(value.MaxSpeed.Value);
         }
     }
-
 }
 
-public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilderBase
+{
     private bool _Direction;
     private bool _RoadMode;
     private bool _SwitchLocation;
@@ -112,7 +136,7 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
     private int _SwitchCount;
 
     public override void BuildPanel(UIPanelBuilder builder) {
-        builder.AddField("Direction",
+        builder.AddField("Direction".Color("cccccc")!,
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Forward", _Direction, () => SetToggle(ref _Direction, true));
                 strip.AddButtonSelectable("Backward", !_Direction, () => SetToggle(ref _Direction, false));
@@ -133,7 +157,7 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
                 )!
             );
         }
-        
+
         builder.AddField("Stop Location",
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Before", _SwitchLocation, () => SetToggle(ref _SwitchLocation, true));
@@ -143,10 +167,13 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
         builder.AddField("Switches",
             builder.ButtonStrip(strip => {
                     strip.AddField("Count", $"{_SwitchCount}");
-                    strip.AddButton("-1", () => {
-                        --_SwitchCount;
-                        strip.Rebuild();
-                    });
+                    if (_SwitchCount > 0) {
+                        strip.AddButton("-1", () => {
+                            --_SwitchCount;
+                            strip.Rebuild();
+                        });
+                    }
+
                     strip.AddButton("+1", () => {
                         ++_SwitchCount;
                         strip.Rebuild();
@@ -170,5 +197,4 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandMove(_Direction, _SwitchLocation, _SwitchCount, _RoadMode ? _MaxSpeed : null);
     }
-
 }

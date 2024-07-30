@@ -1,6 +1,12 @@
-stop detection:
-- ExecuteCoroutine
-    got Stopped message before train started moving
-    
+
 set switch
-    - fould swithc detection code picks node s from wrong direction
+    - fails to throw switch if fouling closer one:
+
+    /    /          
+---S2---S1---
+         ^ train end here
+
+S2 should be thrown
+
+    
+visualize target switch? (map editor node chevron)    

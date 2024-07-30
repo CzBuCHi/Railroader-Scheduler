@@ -1,12 +1,15 @@
-﻿namespace Scheduler.Data.Commands;
+﻿using System.Linq;
 
+namespace Scheduler.Data.Commands;
+
+using System.Collections.Generic;
 using global::UI.Builder;
 using Model;
 using Newtonsoft.Json;
 using Track;
 
-public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : IScheduleCommand {
-
+public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : IScheduleCommand
+{
     public string Identifier => "Set Switch";
 
     public bool Front { get; } = front;
@@ -17,20 +20,28 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ISched
     }
 
     public void Execute(BaseLocomotive locomotive) {
-        var startLocation = SchedulerUtility.StartLocation(Front, locomotive);
-        var node = SchedulerUtility.GetNextSwitchByLocation(startLocation);
+        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
 
-        SchedulerPlugin.DebugMessage($"NODE: {node.id}, Segment: {startLocation.segment.id}");
-
-        // if closest switch is fouled my train, find next switch
-        if (Graph.Shared.DecodeSwitchAt(node, out var enter, out _, out _) && startLocation.segment != enter) {
-            var distance = startLocation.DistanceTo(node);
-            var foulingDistance = Graph.Shared.CalculateFoulingDistance(node);
-            if (distance < foulingDistance) {
-                SchedulerPlugin.DebugMessage($"Fouling switch at {node.id}");
-                node = SchedulerUtility.GetNextSwitch(node, enter);
+        var firstSwitch = true;
+        var items = new List<(TrackSegment Segment, TrackNode Node)>();
+        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
+            items.Add(item);
+            if (!Graph.Shared!.IsSwitch(item.Node)) {
+                continue;
             }
+
+            
+            var distance = SchedulerUtility.Distance(startLocation, items);
+            var (_, lastNode) = items.Last();
+            var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
+            if (distance > foulingDistance || !firstSwitch) {
+                break;
+            }
+            
+            firstSwitch = false;
         }
+
+        var (_, node) = items.Last();
 
         if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive)) {
             return;
@@ -46,19 +57,19 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ISched
     }
 }
 
-public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetSwitch> {
-
+public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetSwitch>
+{
     private bool? _Front;
     private bool? _IsThrown;
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
         switch (propertyName) {
             case "Front":
-                _Front = reader.ReadAsBoolean();
+                _Front = serializer.Deserialize<bool>(reader);
                 break;
 
             case "IsThrown":
-                _IsThrown = reader.ReadAsBoolean();
+                _IsThrown = serializer.Deserialize<bool>(reader);
                 break;
         }
     }
@@ -77,11 +88,10 @@ public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializ
         writer.WritePropertyName("IsThrown");
         writer.WriteValue(value.IsThrown);
     }
-
 }
 
-public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelBuilderBase
+{
     private bool _Front;
     private bool _IsThrown;
 
@@ -113,5 +123,4 @@ public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelB
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandSetSwitch(_Front, _IsThrown);
     }
-
 }

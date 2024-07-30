@@ -1,11 +1,18 @@
-﻿namespace Scheduler.Data.Commands;
+﻿#region
 
-using global::UI.Builder;
+using System.Collections.Generic;
+using System.Linq;
 using Model;
 using Newtonsoft.Json;
+using Track;
+using UI.Builder;
 
-public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand {
+#endregion
 
+namespace Scheduler.Data.Commands;
+
+public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand
+{
     public string Identifier => "Restore Switch";
 
     public bool Front { get; } = front;
@@ -15,12 +22,34 @@ public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand 
     }
 
     public void Execute(BaseLocomotive locomotive) {
-        var startLocation = SchedulerUtility.StartLocation(Front, locomotive);
-        var node = SchedulerUtility.GetNextSwitchByLocation(startLocation);
+        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
+
+        var firstSwitch = true;
+        var items = new List<(TrackSegment Segment, TrackNode Node)>();
+        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
+            items.Add(item);
+            if (!Graph.Shared.IsSwitch(item.Node)) {
+                continue;
+            }
+
+            var distance = SchedulerUtility.Distance(startLocation, items);
+            var (_, lastNode) = items.Last();
+            var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
+
+            if (distance < foulingDistance && !firstSwitch) {
+                break;
+            }
+
+            firstSwitch = false;
+        }
+
+        var (_, node) = items.Last();
+
         if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive)) {
             return;
         }
 
+        SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         if (SchedulerPlugin.Settings.SwitchStates.TryGetValue(node.id, out var state)) {
             node.isThrown = state;
         }
@@ -31,13 +60,13 @@ public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand 
     }
 }
 
-public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandRestoreSwitch> {
-
+public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandRestoreSwitch>
+{
     private bool? _Front;
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
         if (propertyName == "Front") {
-            _Front = reader.ReadAsBoolean();
+            _Front = serializer.Deserialize<bool>(reader);
         }
     }
 
@@ -52,11 +81,10 @@ public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSeri
         writer.WritePropertyName("Front");
         writer.WriteValue(value.Front);
     }
-
 }
 
-public sealed class ScheduleCommandRestoreSwitchPanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandRestoreSwitchPanelBuilder : ScheduleCommandPanelBuilderBase
+{
     private bool _Front;
 
     public override void BuildPanel(UIPanelBuilder builder) {
@@ -82,5 +110,4 @@ public sealed class ScheduleCommandRestoreSwitchPanelBuilder : ScheduleCommandPa
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandRestoreSwitch(_Front);
     }
-
 }

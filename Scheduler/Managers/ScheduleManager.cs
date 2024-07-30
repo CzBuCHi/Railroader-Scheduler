@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Model;
+using Model.AI;
 using Scheduler.Data;
+using Scheduler.Data.Commands;
 using UI.Builder;
 using UnityEngine;
 
@@ -21,6 +23,7 @@ internal sealed class ScheduleManager : MonoBehaviour
     public int SelectedCommandIndex;
 
     public List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
+    public UIPanelBuilder CarInspectorBuilder { get; set; }
 
     public void StartRecording() {
         IsRecording = true;
@@ -37,6 +40,7 @@ internal sealed class ScheduleManager : MonoBehaviour
     public void ModifySchedule(Schedule schedule) {
         IsRecording = true;
         SchedulerPlugin.NewSchedule = schedule.Clone();
+        NewScheduleName = schedule.Name;
         CurrentCommand = 0;
         Builder.Rebuild();
     }
@@ -58,6 +62,7 @@ internal sealed class ScheduleManager : MonoBehaviour
         Builder.Rebuild();
         SelectedSchedule.Value = NewScheduleName;
         SchedulerPlugin.SaveSettings();
+        CarInspectorBuilder.Rebuild();
     }
 
     public void Discard() {
@@ -80,12 +85,15 @@ internal sealed class ScheduleManager : MonoBehaviour
         foreach (var command in schedule.Commands) {
             ExecuteCommand(command, locomotive);
             yield return new WaitForSecondsRealtime(0.5f);
-            yield return new WaitUntil(() => {
-                SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Still moving ...");
 
-                return locomotive.IsStopped(0.5f);
-            });
-            SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Stopped ");
+            if (command is ScheduleCommandMove) {
+                yield return new WaitForSecondsRealtime(4f);
+                yield return new WaitUntil(() => locomotive.IsStopped(1f));
+            }
+
+            if (command is ScheduleCommandMove) {
+                SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Stopped ");
+            }
         }
     }
 
