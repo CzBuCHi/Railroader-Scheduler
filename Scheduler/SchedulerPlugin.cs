@@ -20,9 +20,9 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
 
     public static IModdingContext Context { get; private set; } = null!;
     public static IUIHelper UiHelper { get; private set; } = null!;
+
     internal static Settings Settings { get; private set; } = null!;
     internal static ScheduleManager Manager { get; private set; } = null!;
-    internal static Schedule? NewSchedule { get; set; }
 
     private readonly Serilog.ILogger _Logger = Serilog.Log.ForContext(typeof(SchedulerPlugin))!;
 
@@ -41,7 +41,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
 
         var go = new GameObject(ModIdentifier);
         Manager = go.AddComponent<ScheduleManager>()!;
-        NewSchedule = null;
+        Manager.CurrentSchedule = null;
     }
 
     public override void OnDisable() {
@@ -80,7 +80,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
 
     public static void DebugMessage(string message) {
         if (Settings.Debug) {
-            global::UI.Console.Console.shared!.AddLine($"AI Engineer: {message}");
+            global::UI.Console.Console.shared!.AddLine($"Debug: {message}");
         }
     }
 

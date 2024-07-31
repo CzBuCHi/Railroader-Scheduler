@@ -1,58 +1,27 @@
-﻿using System.Linq;
+﻿using Newtonsoft.Json;
+using Track;
+using UI.Builder;
 
 namespace Scheduler.Data.Commands;
 
-using System.Collections.Generic;
-using global::UI.Builder;
-using Model;
-using Newtonsoft.Json;
-using Track;
-
-public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : IScheduleCommand
+public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ScheduleCommandSwitchBase(front)
 {
-    public string Identifier => "Set Switch";
+    public override string Identifier => "Set Switch";
 
-    public bool Front { get; } = front;
+
     public bool IsThrown { get; } = isThrown;
 
     public override string ToString() {
         return $"Set {(Front ? "front" : "back")} switch to {(IsThrown ? "Reverse" : "Normal")}";
     }
 
-    public void Execute(BaseLocomotive locomotive) {
-        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
-
-        var firstSwitch = true;
-        var items = new List<(TrackSegment Segment, TrackNode Node)>();
-        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
-            items.Add(item);
-            if (!Graph.Shared!.IsSwitch(item.Node)) {
-                continue;
-            }
-
-            
-            var distance = SchedulerUtility.Distance(startLocation, items);
-            var (_, lastNode) = items.Last();
-            var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
-            if (distance > foulingDistance || !firstSwitch) {
-                break;
-            }
-            
-            firstSwitch = false;
-        }
-
-        var (_, node) = items.Last();
-
-        if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive)) {
-            return;
-        }
-
+    protected override void Execute(TrackNode node) {
         SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         SchedulerPlugin.Settings.SwitchStates[node.id] = node.isThrown;
         node.isThrown = IsThrown;
     }
 
-    public IScheduleCommand Clone() {
+    public override IScheduleCommand Clone() {
         return new ScheduleCommandSetSwitch(Front, IsThrown);
     }
 }

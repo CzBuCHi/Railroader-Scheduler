@@ -1,8 +1,5 @@
 ﻿#region
 
-using System.Collections.Generic;
-using System.Linq;
-using Model;
 using Newtonsoft.Json;
 using Track;
 using UI.Builder;
@@ -11,51 +8,22 @@ using UI.Builder;
 
 namespace Scheduler.Data.Commands;
 
-public sealed class ScheduleCommandRestoreSwitch(bool front) : IScheduleCommand
+public sealed class ScheduleCommandRestoreSwitch(bool front) : ScheduleCommandSwitchBase(front)
 {
-    public string Identifier => "Restore Switch";
-
-    public bool Front { get; } = front;
-
+    public override string Identifier => "Restore Switch";
+    
     public override string ToString() {
         return $"Restore {(Front ? "front" : "back")} switch";
     }
 
-    public void Execute(BaseLocomotive locomotive) {
-        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
-
-        var firstSwitch = true;
-        var items = new List<(TrackSegment Segment, TrackNode Node)>();
-        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
-            items.Add(item);
-            if (!Graph.Shared.IsSwitch(item.Node)) {
-                continue;
-            }
-
-            var distance = SchedulerUtility.Distance(startLocation, items);
-            var (_, lastNode) = items.Last();
-            var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
-
-            if (distance < foulingDistance && !firstSwitch) {
-                break;
-            }
-
-            firstSwitch = false;
-        }
-
-        var (_, node) = items.Last();
-
-        if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive)) {
-            return;
-        }
-
+    protected override void Execute(TrackNode node) {
         SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         if (SchedulerPlugin.Settings.SwitchStates.TryGetValue(node.id, out var state)) {
             node.isThrown = state;
         }
     }
 
-    public IScheduleCommand Clone() {
+    public override IScheduleCommand Clone() {
         return new ScheduleCommandRestoreSwitch(Front);
     }
 }

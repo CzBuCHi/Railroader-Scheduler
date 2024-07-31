@@ -39,10 +39,17 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
     public void Execute(BaseLocomotive locomotive) {
         var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Forward ? Car.End.F : Car.End.R);
 
+        var trainLength = SchedulerUtility.GetConsistLength(locomotive);
+
         var items = new List<(TrackSegment Segment, TrackNode Node)>();
+        var index = 0;
         foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
             items.Add(item);
             if (Graph.Shared!.IsSwitch(item.Node)) {
+                ++index;
+            }
+
+            if (index == SwitchCount) {
                 break;
             }
         }
@@ -50,8 +57,12 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
         foreach (var (_, node) in items) {
             SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         }
-
+        
         var distance = SchedulerUtility.Distance(startLocation, items);
+        if (!Before) {
+            // todo
+            distance += trainLength;
+        }
 
         SchedulerPlugin.DebugMessage($"Distance: {distance}");
         var (lastSegment, lastNode) = items.Last();
@@ -66,8 +77,7 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
 
         var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
         var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
-        helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed,
-            distance);
+        helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
     }
 
     public IScheduleCommand Clone() {

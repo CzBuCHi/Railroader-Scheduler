@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using GalaSoft.MvvmLight.Messaging;
+using JetBrains.Annotations;
 using Model;
-using Model.AI;
 using Scheduler.Data;
 using Scheduler.Data.Commands;
 using UI.Builder;
@@ -10,78 +11,144 @@ using UnityEngine;
 
 namespace Scheduler.Managers;
 
+[UsedImplicitly]
 internal sealed class ScheduleManager : MonoBehaviour
 {
-    public readonly UIState<string?> SelectedSchedule = new(null);
-    public UIPanelBuilder Builder;
+    public List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
+    public int SelectedCommandIndex { get; set; }
 
-    public bool IsRecording;
-    public string NewScheduleName = "";
+    public readonly UIState<string?> SelectedSchedule = new(null);
+    public bool EditingSchedule;
+    public bool EditingExistingSchedule => _EditedSchedule != null;
+    public bool AddCommand;
+
+    private Schedule? _EditedSchedule;
+    public Schedule? CurrentSchedule;
+
+    private string _ScheduleName = "";
+
+    public string ScheduleName {
+        get => _ScheduleName;
+        set {
+            if (_ScheduleName == value) {
+                return;
+            }
+
+            _ScheduleName = value;
+            ScheduleNameConflict = Schedules.FindIndex(o => o != _EditedSchedule && o.Name == _ScheduleName) != -1;
+        }
+    }
+
+    private bool _ScheduleNameConflict;
+
+    public bool ScheduleNameConflict {
+        get => _ScheduleNameConflict;
+        set {
+            if (_ScheduleNameConflict == value) {
+                return;
+            }
+
+            _ScheduleNameConflict = value;
+            RebuildDialog();
+        }
+    }
+
     public int? CurrentCommand;
 
-    public bool AddCommand;
-    public int SelectedCommandIndex;
-
-    public List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
-    public UIPanelBuilder CarInspectorBuilder { get; set; }
-
-    public void StartRecording() {
-        IsRecording = true;
-        SchedulerPlugin.NewSchedule = new Schedule();
-        Builder.Rebuild();
-    }
-
-    public void StopRecording() {
-        IsRecording = false;
+    public void Cleanup() {
+        EditingSchedule = false;
+        AddCommand = false;
+        CurrentSchedule = null;
+        ScheduleName = "Schedule #" + Schedules.Count;
         CurrentCommand = null;
-        Builder.Rebuild();
+        _EditedSchedule = null;
+        SelectedSchedule.Value = null;
     }
 
-    public void ModifySchedule(Schedule schedule) {
-        IsRecording = true;
-        SchedulerPlugin.NewSchedule = schedule.Clone();
-        NewScheduleName = schedule.Name;
-        CurrentCommand = 0;
-        Builder.Rebuild();
+    public void CreateNewSchedule() {
+        EditingSchedule = true;
+        CurrentSchedule = new Schedule();
+        RebuildDialog();
     }
 
-    public void Save() {
-        var schedule = SchedulerPlugin.NewSchedule!;
-        if (SelectedSchedule.Value != null) {
-            var index = Schedules.FindIndex(o => o.Name == schedule.Name);
+    public void SaveSchedule() {
+        EditingSchedule = false;
+
+        if (EditingExistingSchedule) {
+            var index = Schedules.FindIndex(o => o.Name == SelectedSchedule.Value);
             Schedules.RemoveAt(index);
-            Schedules.Insert(index, schedule);
+            Schedules.Insert(index, CurrentSchedule!);
         } else {
-            schedule.Name = NewScheduleName;
-            Schedules.Add(schedule);
+            if (ScheduleNameConflict) {
+                return;
+            }
+
+            CurrentSchedule!.Name = ScheduleName;
+            Schedules.Add(CurrentSchedule);
         }
 
-        SchedulerPlugin.NewSchedule = null;
-
-        NewScheduleName = "Schedule #" + Schedules.Count;
-        Builder.Rebuild();
-        SelectedSchedule.Value = NewScheduleName;
+        ScheduleName = "Schedule #" + Schedules.Count;
+        _EditedSchedule = null;
+        CurrentSchedule = null;
+        CurrentCommand = null;
         SchedulerPlugin.SaveSettings();
-        CarInspectorBuilder.Rebuild();
+        RebuildDialog();
+        RebuildCarInspector();
     }
 
-    public void Discard() {
-        SchedulerPlugin.NewSchedule = null;
-        Builder.Rebuild();
+    public void DiscardSchedule() {
+        EditingSchedule = false;
+        AddCommand = false;
+        _EditedSchedule = null;
+        CurrentSchedule = null;
+        RebuildDialog();
     }
 
     public void ExecuteSchedule(Schedule schedule, BaseLocomotive locomotive) {
         StartCoroutine(ExecuteCoroutine(schedule, locomotive));
     }
 
+    public void ModifySchedule(Schedule schedule) {
+        EditingSchedule = true;
+        _EditedSchedule = schedule;
+        CurrentSchedule = schedule.Clone();
+        CurrentCommand = 0;
+        ScheduleName = CurrentSchedule.Name;
+        RebuildDialog();
+    }
+
     public void RemoveSchedule(Schedule schedule) {
         Schedules.Remove(schedule);
         SelectedSchedule.Value = null;
-        Builder.Rebuild();
         SchedulerPlugin.SaveSettings();
+        RebuildDialog();
     }
 
-    private IEnumerator ExecuteCoroutine(Schedule schedule, BaseLocomotive locomotive) {
+    public void PrevCommand() {
+        CurrentCommand = Math.Max(0, CurrentCommand!.Value - 1);
+        RebuildDialog();
+    }
+
+    public void RemoveCommand() {
+        CurrentSchedule!.Commands.RemoveAt(CurrentCommand!.Value);
+        CurrentCommand = Math.Max(0, CurrentCommand!.Value - 1);
+        RebuildDialog();
+    }
+
+    public void NextCommand() {
+        CurrentCommand = Math.Min(CurrentSchedule!.Commands.Count - 1, CurrentCommand!.Value + 1);
+        RebuildDialog();
+    }
+
+    private static void RebuildDialog() {
+        Messenger.Default!.Send(ScheduleRebuildMessage.Instance);
+    }
+
+    private static void RebuildCarInspector() {
+        Messenger.Default!.Send(CarInspectorRebuildMessage.Instance);
+    }
+
+    private static IEnumerator ExecuteCoroutine(Schedule schedule, BaseLocomotive locomotive) {
         foreach (var command in schedule.Commands) {
             ExecuteCommand(command, locomotive);
             yield return new WaitForSecondsRealtime(0.5f);
@@ -97,31 +164,24 @@ internal sealed class ScheduleManager : MonoBehaviour
         }
     }
 
-    private void ExecuteCommand(IScheduleCommand command, BaseLocomotive locomotive) {
+    private static void ExecuteCommand(IScheduleCommand command, BaseLocomotive locomotive) {
         SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Executing {command}");
 
         try {
             command.Execute(locomotive);
-        }
-        catch (Exception e) {
-            global::UI.Console.Console.shared!.AddLine(
-                $"AI Engineer [{Hyperlink.To(locomotive)}]: Pee in the cup moment: " + e.Message);
+        } catch (Exception e) {
+            global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}]: Pee in the cup moment: " + e.Message);
             throw;
         }
     }
+}
 
-    public void PrevCommand() {
-        CurrentCommand = Math.Max(0, CurrentCommand!.Value - 1);
-        Builder.Rebuild();
-    }
+internal sealed class ScheduleRebuildMessage
+{
+    public static readonly ScheduleRebuildMessage Instance = new();
+}
 
-    public void NextCommand() {
-        CurrentCommand = Math.Min(SchedulerPlugin.NewSchedule!.Commands.Count - 1, CurrentCommand!.Value + 1);
-        Builder.Rebuild();
-    }
-
-    public void RemoveCommand() {
-        SchedulerPlugin.NewSchedule!.Commands.RemoveAt(CurrentCommand!.Value);
-        PrevCommand();
-    }
+internal sealed class CarInspectorRebuildMessage
+{
+    public static readonly CarInspectorRebuildMessage Instance = new();
 }
