@@ -1,33 +1,28 @@
-﻿namespace Scheduler.Data.Commands;
-
-using HarmonyLib;
+﻿using HarmonyLib;
 using Model;
 
-public sealed class ScheduleCommandReleaseHandbrakes : IScheduleCommand {
+namespace Scheduler.Data.Commands;
 
-    public string Identifier => "Release Handbrakes";
+public sealed class ScheduleCommandReleaseHandbrakes : ScheduleCommandBase
+{
+    public override string Identifier => "Release Handbrakes";
 
-    public override string ToString() {
-        return "Release handbrakes";
-    }
-
-    public void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive) {
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
     }
 
-    public IScheduleCommand Clone() {
+    public override IScheduleCommand Clone() {
         return new ScheduleCommandReleaseHandbrakes();
     }
 }
 
-public sealed class ScheduleCommandReleaseHandbrakesSerializer : ScheduleCommandSerializerBase<ScheduleCommandReleaseHandbrakes> {
-
+public sealed class ScheduleCommandReleaseHandbrakesSerializer : ScheduleCommandSerializerBase<ScheduleCommandReleaseHandbrakes>
+{
 }
 
-public sealed class ScheduleCommandReleaseHandbrakesPanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandReleaseHandbrakesPanelBuilder : ScheduleCommandPanelBuilderBase
+{
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandReleaseHandbrakes();
     }
-
 }

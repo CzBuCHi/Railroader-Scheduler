@@ -8,7 +8,6 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : Schedu
 {
     public override string Identifier => "Set Switch";
 
-
     public bool IsThrown { get; } = isThrown;
 
     public override string ToString() {

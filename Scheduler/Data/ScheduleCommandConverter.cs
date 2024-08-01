@@ -3,7 +3,7 @@
 using System;
 using Newtonsoft.Json;
 
-public sealed class ScheduleCommandConverter : JsonConverter<IScheduleCommand> {
+internal sealed class ScheduleCommandConverter : JsonConverter<IScheduleCommand> {
 
     public override void WriteJson(JsonWriter writer, IScheduleCommand? value, JsonSerializer serializer) {
         if (value == null) {

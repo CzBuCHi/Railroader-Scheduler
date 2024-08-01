@@ -5,13 +5,11 @@ using Track;
 
 namespace Scheduler.Data.Commands;
 
-public abstract class ScheduleCommandSwitchBase(bool front) : IScheduleCommand
+public abstract class ScheduleCommandSwitchBase(bool front) : ScheduleCommandBase
 {
-    public abstract string Identifier { get; }
-
     public bool Front { get; } = front;
 
-    public void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive) {
         var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
 
         var items = new List<(TrackSegment Segment, TrackNode Node)>();
@@ -44,6 +42,4 @@ public abstract class ScheduleCommandSwitchBase(bool front) : IScheduleCommand
     }
 
     protected abstract void Execute(TrackNode node);
-
-    public abstract IScheduleCommand Clone();
 }

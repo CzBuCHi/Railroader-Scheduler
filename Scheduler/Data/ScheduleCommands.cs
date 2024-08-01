@@ -1,10 +1,11 @@
-﻿namespace Scheduler.Data;
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Scheduler.Data.Commands;
 
-public static class ScheduleCommands {
+namespace Scheduler.Data;
+
+public static class ScheduleCommands
+{
     static ScheduleCommands() {
         RegisterSerializer<ScheduleCommandConnectAir, ScheduleCommandConnectAirSerializer, ScheduleCommandConnectAirPanelBuilder>("Connect Air");
         RegisterSerializer<ScheduleCommandReleaseHandbrakes, ScheduleCommandReleaseHandbrakesSerializer, ScheduleCommandReleaseHandbrakesPanelBuilder>("Release Handbrakes");
@@ -15,9 +16,9 @@ public static class ScheduleCommands {
         RegisterSerializer<ScheduleCommandMove, ScheduleCommandMoveSerializer, ScheduleCommandMovePanelBuilder>("Move");
     }
 
-    public static List<string> Commands => _Serializer.Keys.ToList();
+    internal static List<string> Commands => _Serializer.Keys.ToList();
 
-    public static List<IScheduleCommandPanelBuilder> CommandPanelBuilders => _Serializer.Values.Select(o => o.PanelBuilder).ToList();
+    internal static List<IScheduleCommandPanelBuilder> CommandPanelBuilders => _Serializer.Values.Select(o => o.PanelBuilder).ToList();
 
     private static readonly Dictionary<string, (IScheduleCommandSerializer Serializer, IScheduleCommandPanelBuilder PanelBuilder)> _Serializer = new();
 
@@ -28,13 +29,11 @@ public static class ScheduleCommands {
         _Serializer.Add(identifier, (new TScheduleCommandSerializer(), new TScheduleCommandPanelBuilder()));
     }
 
-    public static IScheduleCommandSerializer? FindSerializer(string identifier) {
+    internal static IScheduleCommandSerializer? FindSerializer(string identifier) {
         if (!_Serializer.TryGetValue(identifier, out var value)) {
             return null;
         }
 
         return value.Serializer;
     }
-
-
 }

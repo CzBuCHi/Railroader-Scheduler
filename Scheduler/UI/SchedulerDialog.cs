@@ -9,7 +9,7 @@ namespace Scheduler.UI;
 
 public sealed class SchedulerDialog
 {
-    private readonly Window _Window = SchedulerPlugin.UiHelper.CreateWindow(1000, 500, Window.Position.Center);
+    private readonly Window _Window = SchedulerPlugin.UiHelper.CreateWindow(800, 500, Window.Position.Center);
 
     public SchedulerDialog() {
         _Window.Title = "AI Scheduler";

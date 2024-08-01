@@ -1,15 +1,15 @@
-﻿namespace Scheduler.Data.Commands;
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using global::UI.Builder;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Extensions;
+using UI.Builder;
 
-public sealed class ScheduleCommandSetHandbrake(int carIndex) : IScheduleCommand {
+namespace Scheduler.Data.Commands;
 
-    public string Identifier => "Set Handbrake";
+public sealed class ScheduleCommandSetHandbrake(int carIndex) : ScheduleCommandBase
+{
+    public override string Identifier => "Set Handbrake";
 
     public int CarIndex { get; } = carIndex;
 
@@ -17,11 +17,11 @@ public sealed class ScheduleCommandSetHandbrake(int carIndex) : IScheduleCommand
         return $"Set handbrake on car #{CarIndex}";
     }
 
-    public void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive) {
         var consist = locomotive.EnumerateConsist();
         var cars = consist
-            .Where(o => o.Car != locomotive) // exclude locomotive
-            .ToDictionary(o => o.Position, o => o.Car);
+                   .Where(o => o.Car != locomotive) // exclude locomotive
+                   .ToDictionary(o => o.Position, o => o.Car);
 
         if (!cars.TryGetValue(CarIndex, out var car)) {
             return;
@@ -30,13 +30,13 @@ public sealed class ScheduleCommandSetHandbrake(int carIndex) : IScheduleCommand
         car!.SetHandbrake(true);
     }
 
-    public IScheduleCommand Clone() {
+    public override IScheduleCommand Clone() {
         return new ScheduleCommandSetHandbrake(CarIndex);
     }
 }
 
-public sealed class ScheduleCommandSetHandbrakeSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetHandbrake> {
-
+public sealed class ScheduleCommandSetHandbrakeSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetHandbrake>
+{
     private int? _CarIndex;
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
@@ -54,11 +54,10 @@ public sealed class ScheduleCommandSetHandbrakeSerializer : ScheduleCommandSeria
         writer.WritePropertyName("CarIndex");
         writer.WriteValue(value.CarIndex);
     }
-
 }
 
-public sealed class ScheduleCommandSetHandbrakePanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandSetHandbrakePanelBuilder : ScheduleCommandPanelBuilderBase
+{
     private List<string> _TrainCars = null!;
     private List<int> _TrainCarsPositions = null!;
     private int _TrainCarsIndex;
@@ -78,5 +77,4 @@ public sealed class ScheduleCommandSetHandbrakePanelBuilder : ScheduleCommandPan
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandSetHandbrake(_TrainCarsPositions[_TrainCarsIndex]);
     }
-
 }

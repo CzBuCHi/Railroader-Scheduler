@@ -5,7 +5,6 @@ using GalaSoft.MvvmLight.Messaging;
 using JetBrains.Annotations;
 using Model;
 using Scheduler.Data;
-using Scheduler.Data.Commands;
 using UI.Builder;
 using UnityEngine;
 
@@ -43,7 +42,7 @@ internal sealed class ScheduleManager : MonoBehaviour
 
     public bool ScheduleNameConflict {
         get => _ScheduleNameConflict;
-        set {
+        private set {
             if (_ScheduleNameConflict == value) {
                 return;
             }
@@ -150,28 +149,17 @@ internal sealed class ScheduleManager : MonoBehaviour
 
     private static IEnumerator ExecuteCoroutine(Schedule schedule, BaseLocomotive locomotive) {
         foreach (var command in schedule.Commands) {
-            ExecuteCommand(command, locomotive);
-            yield return new WaitForSecondsRealtime(0.5f);
+            SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Executing {command}");
 
-            if (command is ScheduleCommandMove) {
-                yield return new WaitForSecondsRealtime(4f);
-                yield return new WaitUntil(() => locomotive.IsStopped(1f));
+            try {
+                command.Execute(locomotive);
+            } catch (Exception e) {
+                global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}]: Pee in the cup moment: " + e.Message);
+                throw;
             }
 
-            if (command is ScheduleCommandMove) {
-                SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Stopped ");
-            }
-        }
-    }
-
-    private static void ExecuteCommand(IScheduleCommand command, BaseLocomotive locomotive) {
-        SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Executing {command}");
-
-        try {
-            command.Execute(locomotive);
-        } catch (Exception e) {
-            global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}]: Pee in the cup moment: " + e.Message);
-            throw;
+            yield return command.WaitBefore();
+            yield return command.WaitUntilComplete(locomotive);
         }
     }
 }

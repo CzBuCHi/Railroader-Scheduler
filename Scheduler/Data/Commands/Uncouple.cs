@@ -1,15 +1,15 @@
-﻿namespace Scheduler.Data.Commands;
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using global::UI.Builder;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Extensions;
+using UI.Builder;
 
-public sealed class ScheduleCommandUncouple(int carIndex) : IScheduleCommand {
+namespace Scheduler.Data.Commands;
 
-    public string Identifier => "Uncouple";
+public sealed class ScheduleCommandUncouple(int carIndex) : ScheduleCommandBase
+{
+    public override string Identifier => "Uncouple";
 
     public int CarIndex { get; } = carIndex;
 
@@ -17,11 +17,11 @@ public sealed class ScheduleCommandUncouple(int carIndex) : IScheduleCommand {
         return $"Uncouple car #{CarIndex}";
     }
 
-    public void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive) {
         var consist = locomotive.EnumerateConsist();
         var cars = consist
-            .Where(o => o.Car != locomotive) // exclude locomotive
-            .ToDictionary(o => o.Position, o => o.Car);
+                   .Where(o => o.Car != locomotive) // exclude locomotive
+                   .ToDictionary(o => o.Position, o => o.Car);
 
         var carIndex = CarIndex;
 
@@ -50,7 +50,7 @@ public sealed class ScheduleCommandUncouple(int carIndex) : IScheduleCommand {
         }
 
         SchedulerPlugin.DebugMessage($"Uncoupling {carToDisconnect!.DisplayName} ({carToDisconnect.Archetype} | {index}).");
-        
+
         var newEndCarEndToDisconnect = newEndCar!.CoupledTo(Car.LogicalEnd.A) == carToDisconnect ? Car.LogicalEnd.A : Car.LogicalEnd.B;
         var carToDisconnectEndToDisconnect = carToDisconnect!.CoupledTo(Car.LogicalEnd.A) == newEndCar ? Car.LogicalEnd.A : Car.LogicalEnd.B;
 
@@ -63,13 +63,13 @@ public sealed class ScheduleCommandUncouple(int carIndex) : IScheduleCommand {
         newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.CutLever, 1f);
     }
 
-    public IScheduleCommand Clone() {
+    public override IScheduleCommand Clone() {
         return new ScheduleCommandUncouple(CarIndex);
     }
 }
 
-public sealed class ScheduleCommandUncoupleSerializer : ScheduleCommandSerializerBase<ScheduleCommandUncouple> {
-
+public sealed class ScheduleCommandUncoupleSerializer : ScheduleCommandSerializerBase<ScheduleCommandUncouple>
+{
     private int? _CarIndex;
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
@@ -88,11 +88,10 @@ public sealed class ScheduleCommandUncoupleSerializer : ScheduleCommandSerialize
         writer.WritePropertyName("CarIndex");
         writer.WriteValue(value.CarIndex);
     }
-
 }
 
-public sealed class ScheduleCommandUncouplePanelBuilder : ScheduleCommandPanelBuilderBase {
-
+public sealed class ScheduleCommandUncouplePanelBuilder : ScheduleCommandPanelBuilderBase
+{
     private List<string> _TrainCars = null!;
     private List<int> _TrainCarsPositions = null!;
     private int _TrainCarsIndex;
@@ -111,5 +110,4 @@ public sealed class ScheduleCommandUncouplePanelBuilder : ScheduleCommandPanelBu
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandUncouple(_TrainCarsPositions[_TrainCarsIndex]);
     }
-
 }
