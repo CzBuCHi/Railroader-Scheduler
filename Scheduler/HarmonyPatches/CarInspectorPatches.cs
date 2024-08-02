@@ -3,7 +3,7 @@ using CarInspectorResizer.Behaviors;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Model;
-using Scheduler.Managers;
+using Scheduler.Messages;
 using UI.Builder;
 using UI.CarInspector;
 using UI.Common;
@@ -24,16 +24,23 @@ public static class CarInspectorPatches
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
     public static void PopulateAIPanel(UIPanelBuilder builder, Car ____car, ref Window ____window) {
-        builder.RebuildOnEvent<CarInspectorRebuildMessage>();
+        builder.RebuildOnEvent<RebuildCarInspectorAIPanel>();
+
         var schedules = SchedulerPlugin.Settings.Schedules.Select(o => o.Name).ToList();
         var currentSelectedIndex = 0;
 
-        builder.AddField("Scheduler",
-            builder.AddDropdown(schedules, currentSelectedIndex, o => currentSelectedIndex = o)!
-        );
+        if (SchedulerPlugin.Settings.Schedules.Count > 0) {
+            builder.AddField("Scheduler",
+                builder.AddDropdown(schedules, currentSelectedIndex, o => currentSelectedIndex = o)!
+            );
+        }
+
         builder.AddField("",
             builder.ButtonStrip(strip => {
-                strip.AddButton("Execute", () => SchedulerPlugin.Manager.ExecuteSchedule(SchedulerPlugin.Settings.Schedules[currentSelectedIndex]!, (BaseLocomotive)____car));
+                if (SchedulerPlugin.Settings.Schedules.Count > 0) {
+                    strip.AddButton("Execute", () => SchedulerPlugin.Runner.ExecuteSchedule(SchedulerPlugin.Settings.Schedules[currentSelectedIndex]!, (BaseLocomotive)____car));
+                }
+
                 strip.AddButton("Manage", () => SchedulerPlugin.SchedulerDialog.ShowWindow((BaseLocomotive)____car));
             })!
         );

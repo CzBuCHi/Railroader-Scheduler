@@ -1,17 +1,21 @@
 ﻿using HarmonyLib;
 using Model;
+using Scheduler.Commands.Abstract;
+using Scheduler.Data;
 
-namespace Scheduler.Data.Commands;
+namespace Scheduler.Commands;
 
 public sealed class ScheduleCommandReleaseHandbrakes : ScheduleCommandBase
 {
     public override string Identifier => "Release Handbrakes";
 
-    public override void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive)
+    {
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
     }
 
-    public override IScheduleCommand Clone() {
+    public override IScheduleCommand Clone()
+    {
         return new ScheduleCommandReleaseHandbrakes();
     }
 }
@@ -22,7 +26,8 @@ public sealed class ScheduleCommandReleaseHandbrakesSerializer : ScheduleCommand
 
 public sealed class ScheduleCommandReleaseHandbrakesPanelBuilder : ScheduleCommandPanelBuilderBase
 {
-    public override IScheduleCommand CreateScheduleCommand() {
+    public override IScheduleCommand CreateScheduleCommand()
+    {
         return new ScheduleCommandReleaseHandbrakes();
     }
 }

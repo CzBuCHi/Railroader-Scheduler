@@ -1,8 +1,10 @@
 ﻿using Newtonsoft.Json;
+using Scheduler.Commands.Abstract;
+using Scheduler.Data;
 using Track;
 using UI.Builder;
 
-namespace Scheduler.Data.Commands;
+namespace Scheduler.Commands;
 
 public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ScheduleCommandSwitchBase(front)
 {
@@ -10,17 +12,20 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : Schedu
 
     public bool IsThrown { get; } = isThrown;
 
-    public override string ToString() {
+    public override string ToString()
+    {
         return $"Set {(Front ? "front" : "back")} switch to {(IsThrown ? "Reverse" : "Normal")}";
     }
 
-    protected override void Execute(TrackNode node) {
+    protected override void Execute(TrackNode node)
+    {
         SchedulerPlugin.DebugMessage($"NODE: {node.id}");
         SchedulerPlugin.Settings.SwitchStates[node.id] = node.isThrown;
         node.isThrown = IsThrown;
     }
 
-    public override IScheduleCommand Clone() {
+    public override IScheduleCommand Clone()
+    {
         return new ScheduleCommandSetSwitch(Front, IsThrown);
     }
 }
@@ -30,8 +35,10 @@ public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializ
     private bool? _Front;
     private bool? _IsThrown;
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
-        switch (propertyName) {
+    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer)
+    {
+        switch (propertyName)
+        {
             case "Front":
                 _Front = serializer.Deserialize<bool>(reader);
                 break;
@@ -42,7 +49,8 @@ public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializ
         }
     }
 
-    protected override ScheduleCommandSetSwitch BuildScheduleCommand() {
+    protected override ScheduleCommandSetSwitch BuildScheduleCommand()
+    {
         ThrowIfNull(_Front, "Front");
         ThrowIfNull(_IsThrown, "IsThrown");
 
@@ -50,7 +58,8 @@ public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializ
     }
 
 
-    public override void Write(JsonWriter writer, ScheduleCommandSetSwitch value) {
+    public override void Write(JsonWriter writer, ScheduleCommandSetSwitch value)
+    {
         writer.WritePropertyName("Front");
         writer.WriteValue(value.Front);
         writer.WritePropertyName("IsThrown");
@@ -63,23 +72,28 @@ public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelB
     private bool _Front;
     private bool _IsThrown;
 
-    public override void BuildPanel(UIPanelBuilder builder) {
+    public override void BuildPanel(UIPanelBuilder builder)
+    {
         builder.AddField("Location",
-            builder.ButtonStrip(strip => {
+            builder.ButtonStrip(strip =>
+            {
                 strip.AddButtonSelectable("Front of train", _Front, () => SetToggle(ref _Front, true));
                 strip.AddButtonSelectable("Rear of train", !_Front, () => SetToggle(ref _Front, false));
             })!
         );
         builder.AddField("Orientation",
-            builder.ButtonStrip(strip => {
+            builder.ButtonStrip(strip =>
+            {
                 strip.AddButtonSelectable("Normal", !_IsThrown, () => SetToggle(ref _IsThrown, false));
                 strip.AddButtonSelectable("Reversed", _IsThrown, () => SetToggle(ref _IsThrown, true));
             })!
         );
         return;
 
-        void SetToggle(ref bool field, bool value) {
-            if (field == value) {
+        void SetToggle(ref bool field, bool value)
+        {
+            if (field == value)
+            {
                 return;
             }
 
@@ -88,7 +102,8 @@ public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelB
         }
     }
 
-    public override IScheduleCommand CreateScheduleCommand() {
+    public override IScheduleCommand CreateScheduleCommand()
+    {
         return new ScheduleCommandSetSwitch(_Front, _IsThrown);
     }
 }

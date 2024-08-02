@@ -1,30 +1,32 @@
-namespace Scheduler;
-
 using System;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
-using global::UI.Builder;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Railloader;
-using Scheduler.Data;
 using Scheduler.Managers;
 using Scheduler.UI;
+using Serilog;
+using UI.Builder;
 using UnityEngine;
+using ILogger = Serilog.ILogger;
 using Object = UnityEngine.Object;
 
-[UsedImplicitly]
-public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IModTabHandler {
+namespace Scheduler;
 
+using Object = Object;
+
+[UsedImplicitly]
+public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IModTabHandler
+{
     private const string ModIdentifier = "Scheduler";
 
     public static IModdingContext Context { get; private set; } = null!;
     public static IUIHelper UiHelper { get; private set; } = null!;
-
     internal static Settings Settings { get; private set; } = null!;
-    internal static ScheduleManager Manager { get; private set; } = null!;
+    internal static ScheduleRunner Runner { get; private set; } = null!;
 
-    private readonly Serilog.ILogger _Logger = Serilog.Log.ForContext(typeof(SchedulerPlugin))!;
+    private readonly ILogger _Logger = Log.ForContext(typeof(SchedulerPlugin))!;
 
     public SchedulerPlugin(IModdingContext context, IUIHelper uiHelper) {
         Context = context;
@@ -40,8 +42,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         Messenger.Default!.Register(this, new Action<MapDidUnloadEvent>(OnMapDidUnload));
 
         var go = new GameObject(ModIdentifier);
-        Manager = go.AddComponent<ScheduleManager>()!;
-        Manager.CurrentSchedule = null;
+        Runner = go.AddComponent<ScheduleRunner>()!;
     }
 
     public override void OnDisable() {
@@ -51,8 +52,8 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
 
         Messenger.Default!.Unregister(this);
 
-        Object.Destroy(Manager.gameObject!);
-        Manager = null!;
+        Object.Destroy(Runner.gameObject!);
+        Runner = null!;
     }
 
     private void OnMapDidUnload(MapDidUnloadEvent obj) {
@@ -83,5 +84,4 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
             global::UI.Console.Console.shared!.AddLine($"Debug: {message}");
         }
     }
-
 }

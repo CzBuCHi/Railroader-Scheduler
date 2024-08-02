@@ -2,6 +2,7 @@
 
 using System;
 using Newtonsoft.Json;
+using Scheduler;
 
 internal sealed class ScheduleCommandConverter : JsonConverter<IScheduleCommand> {
 

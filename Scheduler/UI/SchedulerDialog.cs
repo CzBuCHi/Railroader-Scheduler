@@ -1,7 +1,10 @@
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using GalaSoft.MvvmLight.Messaging;
 using Model;
 using Scheduler.Data;
-using Scheduler.Managers;
+using Scheduler.Messages;
 using UI.Builder;
 using UI.Common;
 
@@ -13,73 +16,138 @@ public sealed class SchedulerDialog
 
     public SchedulerDialog() {
         _Window.Title = "AI Scheduler";
+        _Window.OnShownDidChange += WindowOnOnShownDidChange;
+    }
+
+    private void WindowOnOnShownDidChange(bool isShown) {
+        if (!isShown) {
+            Messenger.Default!.Send(RebuildCarInspectorAIPanel.Instance);
+        }
     }
 
     public void ShowWindow(BaseLocomotive locomotive) {
-        SchedulerPlugin.UiHelper.PopulateWindow(_Window, builder => BuildWindow(builder, locomotive));
-        SchedulerPlugin.Manager.Cleanup();
+        _Locomotive = locomotive;
 
+        SchedulerPlugin.UiHelper.PopulateWindow(_Window, BuildWindow);
         if (!_Window.IsShown) {
             _Window.ShowWindow();
         }
     }
 
-    private static void BuildWindow(UIPanelBuilder builder, BaseLocomotive locomotive) {
-        builder.RebuildOnEvent<ScheduleRebuildMessage>();
+    private BaseLocomotive _Locomotive = null!;
 
-        builder.ButtonStrip(strip => {
-            if (!SchedulerPlugin.Manager.EditingSchedule) {
-                strip.AddButton("Create new schedule", SchedulerPlugin.Manager.CreateNewSchedule);
-            } else {
-                var saveLabel = SchedulerPlugin.Manager.EditingExistingSchedule ? "Save changes" : "Save as new";
-                strip.AddButton(saveLabel, SchedulerPlugin.Manager.SaveSchedule);
-                strip.AddButton("Discard changes", SchedulerPlugin.Manager.DiscardSchedule);
-            }
-        });
+    private string _ScheduleName = "Schedule";
+    private bool _ScheduleNameConflict;
 
-        if (SchedulerPlugin.Manager.CurrentSchedule != null) {
-            var labelText = "Schedule Name";
-            if (SchedulerPlugin.Manager.ScheduleNameConflict) {
-                labelText = labelText.ColorRed()!;
-            }
-
-            builder.AddField(labelText, builder.AddInputField(SchedulerPlugin.Manager.ScheduleName, o => SchedulerPlugin.Manager.ScheduleName = o, characterLimit: 50)!);
-        }
-
-        var schedules = SchedulerPlugin.Manager.Schedules;
-        if (SchedulerPlugin.Manager.CurrentSchedule != null) {
-            schedules = [SchedulerPlugin.Manager.CurrentSchedule];
-        }
-
-        var listItems = schedules.Select(o => new UIPanelBuilder.ListItem<Schedule>(o.Name, o, "Saved schedules", o.Name));
-        builder.AddListDetail(listItems, SchedulerPlugin.Manager.SelectedSchedule, (detail, schedule) => BuildDetail(detail, schedule, locomotive));
-        builder.AddExpandingVerticalSpacer();
-    }
-
-    private static void BuildDetail(UIPanelBuilder builder, Schedule? schedule, BaseLocomotive locomotive) {
-        if (SchedulerPlugin.Manager.CurrentSchedule != null) {
-            schedule = SchedulerPlugin.Manager.CurrentSchedule;
-        }
-
-        if (schedule == null) {
-            builder.AddLabel(SchedulerPlugin.Manager.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
+    private void SetScheduleName(string value) {
+        if (_ScheduleName == value) {
             return;
         }
 
-        if (SchedulerPlugin.Manager.CurrentSchedule == null) {
-            builder.ButtonStrip(strip => {
-                strip.AddButton("Execute", () => SchedulerPlugin.Manager.ExecuteSchedule(schedule, locomotive));
-                strip.AddButton("Modify", () => SchedulerPlugin.Manager.ModifySchedule(schedule));
-                strip.AddButton("Remove", () => SchedulerPlugin.Manager.RemoveSchedule(schedule));
-            });
-        } else {
-            BuildAddCommandPanel(builder, locomotive, SchedulerPlugin.Manager.CurrentSchedule);
+        _ScheduleName = value;
+        _ScheduleNameConflict = Schedules.FindIndex(o => o.Name == _ScheduleName) != -1;
+    }
+
+    private List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
+    private readonly UIState<string?> _SelectedScheduleName = new(null);
+    private Schedule SelectedSchedule => Schedules.First(o => o.Name == _SelectedScheduleName.Value);
+    private bool _NewSchedule;
+    private Schedule? _EditedSchedule;
+
+    private void BuildWindow(UIPanelBuilder builder) {
+        builder.ButtonStrip(strip => {
+            if (!_NewSchedule && _EditedSchedule == null) {
+                strip.AddButton("Create new", () => {
+                    _NewSchedule = true;
+                    SetScheduleName("New schedule #" + (Schedules.Count + 1));
+                    builder.Rebuild();
+                });
+
+                if (_SelectedScheduleName.Value != null) {
+                    strip.AddButton("Remove", () => {
+                        var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
+                        Schedules.RemoveAt(index);
+                        if (index > 0) {
+                            _SelectedScheduleName.Value = Schedules[index - 1]!.Name;
+                        }
+
+                        builder.Rebuild();
+                    });
+                    strip.AddButton("Modify", () => {
+                        _EditedSchedule = SelectedSchedule.Clone();
+                        _CurrentCommandIndex = 0;
+                        builder.Rebuild();
+                    });
+                }
+            } else if (_NewSchedule) {
+                strip.AddButton("Continue", () => {
+                    if (!_ScheduleNameConflict) {
+                        Schedules.Add(new Schedule { Name = _ScheduleName });
+                        _SelectedScheduleName.Value = _ScheduleName;
+                        _NewSchedule = false;
+                        builder.Rebuild();
+                        SchedulerPlugin.SaveSettings();
+                    }
+                });
+                strip.AddButton("Cancel", () => {
+                    _NewSchedule = false;
+                    builder.Rebuild();
+                });
+            } else if (_EditedSchedule != null) {
+                strip.AddButton("Save", () => {
+                    var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
+                    Schedules.RemoveAt(index);
+                    Schedules.Insert(index, _EditedSchedule!);
+                    _NewSchedule = false;
+                    _EditedSchedule = null;
+                    builder.Rebuild();
+                    SchedulerPlugin.SaveSettings();
+                });
+                strip.AddButton("Cancel", () => {
+                    _NewSchedule = false;
+                    _EditedSchedule = null;
+                    builder.Rebuild();
+                });
+            }
+        });
+
+        if (_NewSchedule) {
+            var labelText = "Schedule Name";
+            if (_ScheduleNameConflict) {
+                labelText = labelText.ColorRed()!;
+            }
+
+            builder.AddField(labelText, builder.AddInputField(_ScheduleName, SetScheduleName, characterLimit: 50)!);
         }
 
+        if (_EditedSchedule != null) {
+            builder.AddSection(_EditedSchedule.Name, section => BuildEditor(section, _EditedSchedule));
+        } else {
+            var schedules = SchedulerPlugin.Settings.Schedules;
+            var listItems = schedules.Select(o => new UIPanelBuilder.ListItem<Schedule>(o.Name, o, "Saved schedules", o.Name));
+            builder.AddListDetail(listItems, _SelectedScheduleName, BuildDetail);
+        }
+
+        builder.AddExpandingVerticalSpacer();
+    }
+
+    private int _CurrentCommandIndex;
+    private bool _NewCommand;
+
+    private void BuildDetail(UIPanelBuilder builder, Schedule? schedule) {
+        if (schedule == null) {
+            builder.AddLabel(SchedulerPlugin.Settings.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
+            return;
+        }
+
+        BuildCommandList(builder, schedule);
+    }
+
+    private void BuildCommandList(UIPanelBuilder builder, Schedule schedule) {
         builder.VScrollView(view => {
             for (var i = 0; i < schedule.Commands.Count; i++) {
                 var text = schedule.Commands[i]!.ToString();
-                if (SchedulerPlugin.Manager.CurrentCommand == i) {
+                if (_EditedSchedule != null && _CurrentCommandIndex == i) {
                     text = text.ColorYellow()!;
                 }
 
@@ -88,57 +156,66 @@ public sealed class SchedulerDialog
         });
     }
 
-    private static void BuildAddCommandPanel(UIPanelBuilder builder, BaseLocomotive locomotive, Schedule schedule) {
+    private void BuildEditor(UIPanelBuilder builder, Schedule schedule) {
+        builder.AddLabel("Schedule: " + schedule.Name);
+
         builder.AddField("Commands",
             builder.ButtonStrip(strip => {
-                if (!SchedulerPlugin.Manager.AddCommand) {
-                    strip.AddButton("Add", () => {
-                        SchedulerPlugin.Manager.AddCommand = true;
-                        builder.Rebuild();
-                    });
-                }
-
-                strip.AddButton("Prev", () => SchedulerPlugin.Manager.PrevCommand());
-                strip.AddButton("Next", () => SchedulerPlugin.Manager.NextCommand());
-                if (!SchedulerPlugin.Manager.AddCommand) {
-                    strip.AddButton("Remove", () => SchedulerPlugin.Manager.RemoveCommand());
-                }
+                strip.AddButton("Add", () => {
+                    _NewCommand = true;
+                    builder.Rebuild();
+                });
+                strip.AddButton("Remove", () => {
+                    schedule.Commands.RemoveAt(_CurrentCommandIndex);
+                    _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
+                    builder.Rebuild();
+                });
+                strip.AddButton("Prev", () => {
+                    _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
+                    builder.Rebuild();
+                });
+                strip.AddButton("Next", () => {
+                    _CurrentCommandIndex = Math.Min(schedule.Commands.Count - 1, _CurrentCommandIndex + 1);
+                    builder.Rebuild();
+                });
             })!
         );
 
-        if (!SchedulerPlugin.Manager.AddCommand) {
+        if (!_NewCommand) {
+            BuildCommandList(builder, schedule);
             return;
         }
 
-        builder.AddDropdown(ScheduleCommands.Commands, SchedulerPlugin.Manager.SelectedCommandIndex, o => {
-            SchedulerPlugin.Manager.SelectedCommandIndex = o;
-            builder.Rebuild();
-        });
+        builder.AddField("Command",
+            builder.AddDropdown(ScheduleCommands.Commands, _CurrentCommandIndex, o => {
+                _CurrentCommandIndex = o;
+                builder.Rebuild();
+            })!
+        );
 
-        var panelBuilder = ScheduleCommands.CommandPanelBuilders[SchedulerPlugin.Manager.SelectedCommandIndex]!;
-        panelBuilder.Configure(locomotive);
+        var panelBuilder = ScheduleCommands.CommandPanelBuilders[_CurrentCommandIndex]!;
+        panelBuilder.Configure(_Locomotive);
         panelBuilder.BuildPanel(builder);
 
-        builder.ButtonStrip(strip => { 
+        builder.ButtonStrip(strip => {
             strip.AddButton("Confirm", () => {
                 var command = panelBuilder.CreateScheduleCommand();
 
-                if (SchedulerPlugin.Manager.CurrentCommand != null) {
-                    schedule.Commands.Insert(SchedulerPlugin.Manager.CurrentCommand.Value + 1, command);
-                    ++SchedulerPlugin.Manager.CurrentCommand;
+                if (schedule.Commands.Count > _CurrentCommandIndex) {
+                    schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
+                    ++_CurrentCommandIndex;
                 } else {
                     schedule.Commands.Add(command);
                 }
 
-                command.Execute(locomotive);
-                SchedulerPlugin.Manager.AddCommand = false;
+                command.Execute(_Locomotive);
+                _NewCommand = false;
                 builder.Rebuild();
             });
             strip.AddButton("Cancel", () => {
-                SchedulerPlugin.Manager.AddCommand = false;
+                _NewCommand = false;
                 builder.Rebuild();
             });
         });
     }
 }
-

@@ -1,23 +1,27 @@
 ﻿using Model;
+using Scheduler.Data;
 using UnityEngine;
 
-namespace Scheduler.Data.Commands;
+namespace Scheduler.Commands.Abstract;
 
 public abstract class ScheduleCommandBase : IScheduleCommand
 {
     public abstract string Identifier { get; }
 
-    public override string ToString() {
+    public override string ToString()
+    {
         return Identifier;
     }
 
     public abstract void Execute(BaseLocomotive locomotive);
 
-    public virtual CustomYieldInstruction WaitBefore() {
+    public virtual CustomYieldInstruction WaitBefore()
+    {
         return new WaitForSecondsRealtime(1f);
     }
 
-    public virtual WaitUntil? WaitUntilComplete(BaseLocomotive locomotive) {
+    public virtual WaitUntil? WaitUntilComplete(BaseLocomotive locomotive)
+    {
         return null;
     }
 

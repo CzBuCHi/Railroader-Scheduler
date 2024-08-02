@@ -3,20 +3,23 @@ using System.Linq;
 using Model;
 using Track;
 
-namespace Scheduler.Data.Commands;
+namespace Scheduler.Commands.Abstract;
 
 public abstract class ScheduleCommandSwitchBase(bool front) : ScheduleCommandBase
 {
     public bool Front { get; } = front;
 
-    public override void Execute(BaseLocomotive locomotive) {
+    public override void Execute(BaseLocomotive locomotive)
+    {
         var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Front ? Car.End.F : Car.End.R);
 
         var items = new List<(TrackSegment Segment, TrackNode Node)>();
         var index = 0;
-        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
+        foreach (var item in SchedulerUtility.GetRoute(startLocation))
+        {
             items.Add(item);
-            if (!Graph.Shared!.IsSwitch(item.Node)) {
+            if (!Graph.Shared!.IsSwitch(item.Node))
+            {
                 continue;
             }
 
@@ -27,14 +30,16 @@ public abstract class ScheduleCommandSwitchBase(bool front) : ScheduleCommandBas
             var (_, lastNode) = items.Last();
             var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
             SchedulerPlugin.DebugMessage($"foulingDistance {foulingDistance}");
-            if (distance > foulingDistance || index > 1) {
+            if (distance > foulingDistance || index > 1)
+            {
                 break;
             }
         }
 
         var (_, node) = items.Last();
 
-        if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive, items)) {
+        if (!SchedulerUtility.CanOperateSwitch(node, startLocation, locomotive, items))
+        {
             return;
         }
 

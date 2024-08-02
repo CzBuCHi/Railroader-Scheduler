@@ -1,18 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Helpers;
-using JetBrains.Annotations;
-using System.Text;
+using Game.Messages;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
+using Scheduler.Commands.Abstract;
+using Scheduler.Data;
 using Track;
-using UI;
 using UI.Builder;
-using UI.ContextMenu;
+using UI.EngineControls;
 using UnityEngine;
 
-namespace Scheduler.Data.Commands;
+namespace Scheduler.Commands;
 
 public sealed class ScheduleCommandMove(bool forward, bool before, int switchCount, int? maxSpeed) : ScheduleCommandBase
 {
@@ -44,7 +43,7 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
         if (Before) {
             SchedulerPlugin.DebugMessage("Executing order to stop before next switch");
         }
-        
+
         var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject);
         var orders = persistence.Orders;
         var coupledCars = locomotive.EnumerateCoupled(orders.Forward ? Car.End.F : Car.End.R).ToList();
@@ -97,25 +96,17 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
 
         var (lastSegment, lastNode) = items.Last();
 
+        var foulingDistance = Graph.Shared!.CalculateFoulingDistance(lastNode);
+        SchedulerPlugin.DebugMessage($"FoulingDistance: {foulingDistance}");
 
-        var go = new GameObject();
-        go.AddComponent<TrackNodeHelper>();
-        go.transform.SetParent(lastNode.transform);
-        go.transform.localPosition = moved.GetPosition() + new Vector3(0, 5, 0);
+        if (Graph.Shared.DecodeSwitchAt(lastNode, out var enter, out _, out _) && lastSegment != enter) {
+            distance -= foulingDistance + 6.1f;
+        }
 
+        SchedulerPlugin.DebugMessage($"Final distance: {distance}");
 
-        //
-        //var foulingDistance = Graph.Shared!.CalculateFoulingDistance(lastNode);
-        //SchedulerPlugin.DebugMessage($"FoulingDistance: {foulingDistance}");
-
-        //if (Graph.Shared.DecodeSwitchAt(lastNode, out var enter, out _, out _) && lastSegment != enter) {
-        //    distance -= foulingDistance + 6.1f;
-        //}
-
-        //SchedulerPlugin.DebugMessage($"Final distance: {distance}");
-
-        //var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
-        //helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
+        var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
+        helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
     }
 
     public override CustomYieldInstruction WaitBefore() {
@@ -253,29 +244,5 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
 
     public override IScheduleCommand CreateScheduleCommand() {
         return new ScheduleCommandMove(_Direction, _SwitchLocation, _SwitchCount, _RoadMode ? _MaxSpeed : null);
-    }
-}
-
-
-
-
-public sealed class TrackNodeHelper : MonoBehaviour
-{
-    private static readonly Material _LineMaterial = new(Shader.Find("Universal Render Pipeline/Lit")!);
-
-    [UsedImplicitly]
-    public void Start() {
-        transform!.localPosition = Vector3.zero;
-        transform.localEulerAngles = Vector3.zero;
-
-        var lineRenderer = gameObject!.AddComponent<LineRenderer>()!;
-        lineRenderer.material = _LineMaterial;
-        lineRenderer.material.color = Color.yellow;
-        lineRenderer.startWidth = 0.05f;
-        lineRenderer.positionCount = 3;
-        lineRenderer.useWorldSpace = false;
-        lineRenderer.SetPosition(0, new Vector3(0.2f, 1, 0));
-        lineRenderer.SetPosition(1, new Vector3(0, 0, 0));
-        lineRenderer.SetPosition(2, new Vector3(-0.2f, 1, 0));
     }
 }
