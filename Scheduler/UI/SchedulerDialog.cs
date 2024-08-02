@@ -45,7 +45,7 @@ public sealed class SchedulerDialog
         }
 
         _ScheduleName = value;
-        _ScheduleNameConflict = Schedules.FindIndex(o => o.Name == _ScheduleName) != -1;
+        _ScheduleNameConflict = Schedules.FindIndex(o => o != SelectedSchedule && o.Name == _ScheduleName) != -1;
     }
 
     private List<Schedule> Schedules => SchedulerPlugin.Settings.Schedules;
@@ -53,65 +53,33 @@ public sealed class SchedulerDialog
     private Schedule SelectedSchedule => Schedules.First(o => o.Name == _SelectedScheduleName.Value);
     private bool _NewSchedule;
     private Schedule? _EditedSchedule;
+    private bool _RenameSchedule;
 
     private void BuildWindow(UIPanelBuilder builder) {
+        _Window.Title = _EditedSchedule == null ? "AI Scheduler" : "AI Scheduler | " + _EditedSchedule.Name;
+
         builder.ButtonStrip(strip => {
             if (!_NewSchedule && _EditedSchedule == null) {
-                strip.AddButton("Create new", () => {
-                    _NewSchedule = true;
-                    SetScheduleName("New schedule #" + (Schedules.Count + 1));
-                    builder.Rebuild();
-                });
+                strip.AddButton("Create new", () => CreateNewSchedule(builder));
 
                 if (_SelectedScheduleName.Value != null) {
-                    strip.AddButton("Remove", () => {
-                        var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
-                        Schedules.RemoveAt(index);
-                        if (index > 0) {
-                            _SelectedScheduleName.Value = Schedules[index - 1]!.Name;
-                        }
-
-                        builder.Rebuild();
-                    });
-                    strip.AddButton("Modify", () => {
-                        _EditedSchedule = SelectedSchedule.Clone();
-                        _CurrentCommandIndex = 0;
-                        builder.Rebuild();
-                    });
+                    strip.AddButton("Remove", () => RemoveSchedule(builder));
+                    strip.AddButton("Rename", () => RenameSchedule(builder));
+                    strip.AddButton("Modify", () => ModifySchedule(builder));
                 }
             } else if (_NewSchedule) {
-                strip.AddButton("Continue", () => {
-                    if (!_ScheduleNameConflict) {
-                        Schedules.Add(new Schedule { Name = _ScheduleName });
-                        _SelectedScheduleName.Value = _ScheduleName;
-                        _NewSchedule = false;
-                        builder.Rebuild();
-                        SchedulerPlugin.SaveSettings();
-                    }
-                });
-                strip.AddButton("Cancel", () => {
-                    _NewSchedule = false;
-                    builder.Rebuild();
-                });
+                strip.AddButton("Save", () => ConfirmCreateNewSchedule(builder));
+                strip.AddButton("Cancel", () => CancelNewSchedule(builder));
+            } else if (_RenameSchedule) {
+                strip.AddButton("Save", () => ConfirmRenameSchedule(builder));
+                strip.AddButton("Cancel", () => CancelRenameSchedule(builder));
             } else if (_EditedSchedule != null) {
-                strip.AddButton("Save", () => {
-                    var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
-                    Schedules.RemoveAt(index);
-                    Schedules.Insert(index, _EditedSchedule!);
-                    _NewSchedule = false;
-                    _EditedSchedule = null;
-                    builder.Rebuild();
-                    SchedulerPlugin.SaveSettings();
-                });
-                strip.AddButton("Cancel", () => {
-                    _NewSchedule = false;
-                    _EditedSchedule = null;
-                    builder.Rebuild();
-                });
+                strip.AddButton("Save", () => ConfirmModifySchedule(builder));
+                strip.AddButton("Cancel", () => CancelModifySchedule(builder));
             }
         });
 
-        if (_NewSchedule) {
+        if (_NewSchedule || _RenameSchedule) {
             var labelText = "Schedule Name";
             if (_ScheduleNameConflict) {
                 labelText = labelText.ColorRed()!;
@@ -131,7 +99,7 @@ public sealed class SchedulerDialog
         builder.AddExpandingVerticalSpacer();
     }
 
-    private int _CurrentCommandIndex;
+    private int _CurrentCommandTypeIndex;
     private bool _NewCommand;
 
     private void BuildDetail(UIPanelBuilder builder, Schedule? schedule) {
@@ -147,7 +115,7 @@ public sealed class SchedulerDialog
         builder.VScrollView(view => {
             for (var i = 0; i < schedule.Commands.Count; i++) {
                 var text = schedule.Commands[i]!.ToString();
-                if (_EditedSchedule != null && _CurrentCommandIndex == i) {
+                if (_EditedSchedule != null && _CurrentCommandTypeIndex == i) {
                     text = text.ColorYellow()!;
                 }
 
@@ -161,23 +129,10 @@ public sealed class SchedulerDialog
 
         builder.AddField("Commands",
             builder.ButtonStrip(strip => {
-                strip.AddButton("Add", () => {
-                    _NewCommand = true;
-                    builder.Rebuild();
-                });
-                strip.AddButton("Remove", () => {
-                    schedule.Commands.RemoveAt(_CurrentCommandIndex);
-                    _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
-                    builder.Rebuild();
-                });
-                strip.AddButton("Prev", () => {
-                    _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
-                    builder.Rebuild();
-                });
-                strip.AddButton("Next", () => {
-                    _CurrentCommandIndex = Math.Min(schedule.Commands.Count - 1, _CurrentCommandIndex + 1);
-                    builder.Rebuild();
-                });
+                strip.AddButton("Add", () => CreateCommand(builder));
+                strip.AddButton("Remove", () => RemoveCommand(builder, schedule));
+                strip.AddButton("Prev", () => PrevCommand(builder));
+                strip.AddButton("Next", () => NextCommand(builder, schedule));
             })!
         );
 
@@ -186,36 +141,139 @@ public sealed class SchedulerDialog
             return;
         }
 
-        builder.AddField("Command",
-            builder.AddDropdown(ScheduleCommands.Commands, _CurrentCommandIndex, o => {
-                _CurrentCommandIndex = o;
-                builder.Rebuild();
-            })!
-        );
+        builder.AddField("Command", builder.AddDropdown(ScheduleCommands.Commands, _CurrentCommandTypeIndex, o => PickCommandType(o, builder))!);
 
-        var panelBuilder = ScheduleCommands.CommandPanelBuilders[_CurrentCommandIndex]!;
+        var panelBuilder = ScheduleCommands.CommandPanelBuilders[_CurrentCommandTypeIndex]!;
         panelBuilder.Configure(_Locomotive);
         panelBuilder.BuildPanel(builder);
 
         builder.ButtonStrip(strip => {
-            strip.AddButton("Confirm", () => {
-                var command = panelBuilder.CreateScheduleCommand();
-
-                if (schedule.Commands.Count > _CurrentCommandIndex) {
-                    schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
-                    ++_CurrentCommandIndex;
-                } else {
-                    schedule.Commands.Add(command);
-                }
-
-                command.Execute(_Locomotive);
-                _NewCommand = false;
-                builder.Rebuild();
-            });
-            strip.AddButton("Cancel", () => {
-                _NewCommand = false;
-                builder.Rebuild();
-            });
+            strip.AddButton("Confirm", () => ConfirmCreateCommand(builder, panelBuilder, schedule));
+            strip.AddButton("Cancel", () => CancelCreateCommand(builder));
         });
     }
+
+    #region Handlers
+
+    private void CreateNewSchedule(UIPanelBuilder builder) {
+        _NewSchedule = true;
+        SetScheduleName("New schedule #" + (Schedules.Count + 1));
+        builder.Rebuild();
+    }
+
+    private void RemoveSchedule(UIPanelBuilder builder) {
+        var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
+        Schedules.RemoveAt(index);
+        if (index > 0) {
+            _SelectedScheduleName.Value = Schedules[index - 1]!.Name;
+        }
+
+        builder.Rebuild();
+    }
+
+    private void RenameSchedule(UIPanelBuilder builder) {
+        _RenameSchedule = true;
+        builder.Rebuild();
+    }
+
+    private void ModifySchedule(UIPanelBuilder builder) {
+        _EditedSchedule = SelectedSchedule.Clone();
+        _CurrentCommandTypeIndex = 0;
+        builder.Rebuild();
+    }
+
+    private void ConfirmCreateNewSchedule(UIPanelBuilder builder) {
+        if (_ScheduleNameConflict) {
+            return;
+        }
+
+        Schedules.Add(new Schedule { Name = _ScheduleName });
+        _SelectedScheduleName.Value = _ScheduleName;
+        _NewSchedule = false;
+        builder.Rebuild();
+        SchedulerPlugin.SaveSettings();
+    }
+
+    private void CancelNewSchedule(UIPanelBuilder builder) {
+        _NewSchedule = false;
+        builder.Rebuild();
+    }
+
+    private void ConfirmRenameSchedule(UIPanelBuilder builder) {
+        if (_ScheduleNameConflict) {
+            return;
+        }
+
+        SelectedSchedule.Name = _ScheduleName;
+        _RenameSchedule = false;
+        builder.Rebuild();
+        SchedulerPlugin.SaveSettings();
+    }
+
+    private void CancelRenameSchedule(UIPanelBuilder builder) {
+        _RenameSchedule = false;
+        builder.Rebuild();
+    }
+
+    private void ConfirmModifySchedule(UIPanelBuilder builder) {
+        var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
+        Schedules.RemoveAt(index);
+        Schedules.Insert(index, _EditedSchedule!);
+        _EditedSchedule = null;
+        builder.Rebuild();
+        SchedulerPlugin.SaveSettings();
+    }
+
+    private void CancelModifySchedule(UIPanelBuilder builder) {
+        _EditedSchedule = null;
+        builder.Rebuild();
+    }
+
+    private void PickCommandType(int commandIndex, UIPanelBuilder builder) {
+        _CurrentCommandTypeIndex = commandIndex;
+        builder.Rebuild();
+    }
+
+    private void CreateCommand(UIPanelBuilder builder) {
+        _NewCommand = true;
+        builder.Rebuild();
+    }
+
+    private void ConfirmCreateCommand(UIPanelBuilder builder, IScheduleCommandPanelBuilder commandBuilder, Schedule schedule) {
+        var command = commandBuilder.CreateScheduleCommand();
+
+        if (schedule.Commands.Count > _CurrentCommandTypeIndex) {
+            schedule.Commands.Insert(_CurrentCommandTypeIndex + 1, command);
+            ++_CurrentCommandTypeIndex;
+        } else {
+            schedule.Commands.Add(command);
+        }
+
+        command.Execute(_Locomotive);
+        _NewCommand = false;
+        builder.Rebuild();
+    }
+
+    private void CancelCreateCommand(UIPanelBuilder builder) {
+        _NewCommand = false;
+        builder.Rebuild();
+    }
+
+    private void RemoveCommand(UIPanelBuilder builder, Schedule schedule) {
+        schedule.Commands.RemoveAt(_CurrentCommandTypeIndex);
+        _CurrentCommandTypeIndex = Math.Max(0, _CurrentCommandTypeIndex - 1);
+        builder.Rebuild();
+    }
+
+    private void PrevCommand(UIPanelBuilder builder) {
+        _CurrentCommandTypeIndex = Math.Max(0, _CurrentCommandTypeIndex - 1);
+        builder.Rebuild();
+    }
+
+    private void NextCommand(UIPanelBuilder builder, Schedule schedule) {
+        _CurrentCommandTypeIndex = Math.Min(schedule.Commands.Count - 1, _CurrentCommandTypeIndex + 1);
+        builder.Rebuild();
+    }
+
+    #endregion
 }
