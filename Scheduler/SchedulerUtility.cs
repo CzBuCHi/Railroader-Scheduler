@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Core;
 using Model;
+using Model.AI;
 using Scheduler.Extensions;
+using Scheduler.HarmonyPatches;
+using Scheduler.Visualizers;
 using Track;
+using UnityEngine;
 
 namespace Scheduler;
 
@@ -127,4 +132,252 @@ public static class SchedulerUtility
         trainCars = carIndices.Select(o => $"Car #{o.Position} ({o.Car!.DisplayName})").ToList();
         trainCarsPositions = carIndices.Select(o => o.Position).ToList();
     }
+
+
+
+
+
+    public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, out TrackNode? targetSwitch) {
+        targetSwitch = null;
+
+        const float FEET_PER_METER = 3.28084f;
+        const float CAR_LENGTH_IN_METERS = 12.192f;
+        const float MAX_DISTANCE_IN_METERS = 100000f / FEET_PER_METER;
+
+        if (stopBeforeSwitch)
+        {
+            SchedulerPlugin.DebugMessage("Executing order to stop before next switch");
+        }
+        else if (clearSwitchesUnderTrain)
+        {
+            var str = switchesToFind == 1 ? "first switch" : $"{switchesToFind} switches";
+            SchedulerPlugin.DebugMessage($"Executing order to stop after clearing {str}");
+        }
+        else
+        {
+            SchedulerPlugin.DebugMessage("Executing order to stop after closest switch in front of train");
+        }
+
+        var graph = Graph.Shared!;
+        
+        var coupledCars = locomotive.EnumerateCoupled(forward ? Car.End.F : Car.End.R)!.ToList();
+        var totalLength = coupledCars.Sum(car => car.carLength) + 1f * (coupledCars.Count - 1); // add 1m separation per car
+
+        SchedulerPlugin.DebugMessage($"Found locomotive {locomotive.DisplayName} with {coupledCars.Count} cars");
+
+        TrackSegment segment;
+        TrackSegment.End segmentEnd;
+        Location start;
+
+        // if we are stopping before the next switch then we can look forward from the logical front the train to find the next switch
+        start = FirstCarLocation(locomotive, forward ? Car.End.F : Car.End.R);
+        //start = StartLocation(locomotive, coupledCars, orders.Forward);
+
+        if (start == null)
+        {
+            SchedulerPlugin.DebugMessage("Error: couldn't find locomotive start location");
+        }
+
+        SchedulerPlugin.DebugMessage($"Start location: segment ID {start.segment.id}, distance {start.distance} ({start.end})");
+        if (clearSwitchesUnderTrain)
+        {
+            // if we are clearing a switch, the train might currently be over it.
+            // so we want to start our search from the end of the train
+            start = graph.LocationByMoving(start.Flipped(), totalLength).Flipped();
+
+            SchedulerPlugin.DebugMessage($"location for end of train: segment ID {start.segment.id}, distance {start.distance} ({start.end})");
+        }
+
+        segment = start.segment;
+        segmentEnd = start.EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
+
+        float distanceInMeters = 0;
+
+        var switchesFound = 0;
+        var foundAllSwitches = false;
+        var safetyMargin = 2; // distance to leave clear of switch
+        var maxSegmentsToSearch = 50;
+
+        for (var i = 0; i < maxSegmentsToSearch; i++)
+        {
+            if (i == 0)
+            {
+                SchedulerPlugin.DebugMessage($"Adding distance from start to next node {i + 2} {start.DistanceUntilEnd()}");
+                distanceInMeters += start.DistanceUntilEnd();
+            }
+            else
+            {
+                SchedulerPlugin.DebugMessage($"Adding distance from node {i + 1} to next node {i + 2} {segment.GetLength()}");
+                distanceInMeters += segment.GetLength();
+            }
+
+            if (distanceInMeters > MAX_DISTANCE_IN_METERS)
+            {
+                distanceInMeters = MAX_DISTANCE_IN_METERS;
+                SchedulerPlugin.DebugMessage($"Reached max distance {MAX_DISTANCE_IN_METERS}m");
+                break;
+            }
+
+            var node = segment.NodeForEnd(segmentEnd);
+            if (node == null)
+            {
+                SchedulerPlugin.DebugMessage("Next node is null");
+                break;
+            }
+
+            targetSwitch = node;
+
+            if (graph.IsSwitch(node))
+            {
+                SchedulerPlugin.DebugMessage($"Found next switch at {distanceInMeters}m");
+
+                switchesFound += 1;
+                foundAllSwitches = switchesFound >= switchesToFind;
+
+                if (foundAllSwitches)
+                {
+                    break;
+                }
+
+                // update segments if looking past switch
+
+                // for switches we need to work out which way it is going
+                graph.DecodeSwitchAt(node, out var switchEnterSegment, out var switchExitNormal, out var switchExitReverse);
+
+                // switchEnterSegment, switchExitSegmentA, switchExitSegmentB cannot be null here, because graph.IsSwitch(node) call above ...
+
+                // if we are coming from a switch exit, the next segment is the switch entrance
+                if (switchExitNormal != null && segment.id == switchExitNormal.id || switchExitReverse != null && segment.id == switchExitReverse.id)
+                {
+                    SchedulerPlugin.DebugMessage("Switch only has one exit");
+                    segment = switchEnterSegment;
+                }
+                else
+                {
+                    // otherwise depends on if the switch is thrown
+                    if (node.isThrown)
+                    {
+                        SchedulerPlugin.DebugMessage("Following thrown exit");
+                        segment = switchExitReverse;
+                    }
+                    else
+                    {
+                        SchedulerPlugin.DebugMessage("Following normal exit");
+                        segment = switchExitNormal;
+                    }
+                }
+            }
+            else
+            {
+                // next segment for non-switches
+                graph.SegmentsReachableFrom(segment, segmentEnd, out var segmentExitNormal, out _);
+                segment = segmentExitNormal;
+            }
+
+            if (segment == null)
+            {
+                SchedulerPlugin.DebugMessage("Next segment is null");
+                break;
+            }
+
+            // next segment end is whatever end is NOT pointing at the current node
+            segmentEnd = segment.NodeForEnd(TrackSegment.End.A).id == node.id ? TrackSegment.End.B : TrackSegment.End.A;
+        }
+
+        if (foundAllSwitches)
+        {
+            var node = segment.NodeForEnd(segmentEnd);
+            targetSwitch = node;
+
+            graph.DecodeSwitchAt(node, out var switchEnterSegment, out _, out _);
+            var nodeFoulingDistance = graph.CalculateFoulingDistance(node);
+
+            var facingSwitchEntrance = switchEnterSegment == segment;
+
+            if (stopBeforeSwitch)
+            {
+                if (!facingSwitchEntrance)
+                {
+                    SchedulerPlugin.DebugMessage($"Subtracting extra distance {nodeFoulingDistance} to not block other track entering switch");
+                    distanceInMeters = distanceInMeters - nodeFoulingDistance;
+                }
+                else
+                {
+                    distanceInMeters -= safetyMargin;
+                }
+            }
+            else
+            {
+                if (facingSwitchEntrance)
+                {
+                    SchedulerPlugin.DebugMessage($"Adding extra distance {nodeFoulingDistance}m to not block other track entering switch");
+                    distanceInMeters = distanceInMeters + nodeFoulingDistance;
+                }
+                else
+                {
+                    distanceInMeters += safetyMargin;
+                }
+
+                // if we're not stopping before the switch, then we calculated the distance to the switch from
+                // the front of the train and therefore need to add the train length to pass the next switch
+                if (!clearSwitchesUnderTrain)
+                {
+                    distanceInMeters += totalLength;
+                }
+            }
+        }
+
+        return Math.Max(0, distanceInMeters);
+    }
+
+    //private static Location StartLocation(BaseLocomotive locomotive, List<Car> coupledCarsCached, bool forward)
+    //{
+    //    var logical = locomotive.EndToLogical(forward ? Car.End.F : Car.End.R);
+    //    var car = coupledCarsCached[0];
+    //    if (logical == Car.LogicalEnd.A)
+    //    {
+    //        var locationA = car.LocationA;
+    //        return !locationA.IsValid ? car.WheelBoundsA : locationA;
+    //    }
+
+    //    var locationB = car.LocationB;
+    //    return (locationB.IsValid ? locationB : car.WheelBoundsB).Flipped();
+    //}
+
+
+    #region move camera to node
+
+    /// <summary>
+    /// Camera state before move
+    /// </summary>
+    private static (Vector3 position, bool isFirstPerson)? _CameraState;
+
+    /// <summary> Move 3rd person camera to selected track node and if player do not move camera then return back to original position after 2 seconds. </summary>
+    public static void MoveCameraToNode(TrackNode node) {
+        var cameraSelector = CameraSelector.shared!;
+
+        // ignore camera locations when arrow is shown
+        _CameraState ??= (cameraSelector.CurrentCameraPosition, cameraSelector.CurrentCameraIsFirstPerson);
+
+        // move camera
+        cameraSelector.ZoomToPoint(node.transform!.localPosition);
+
+        var afterMove = cameraSelector.CurrentCameraPosition;
+        TrackNodeVisualizer.Shared.OnHidden = () => {
+            // move camera back if was not moved
+            if (cameraSelector.CurrentCameraPosition == afterMove) {
+                if (_CameraState.Value.isFirstPerson) {
+                    cameraSelector.SelectCamera(CameraSelector.CameraIdentifier.FirstPerson);
+                } else {
+                    cameraSelector.ZoomToPoint(_CameraState.Value.position);
+                }
+            }
+
+            _CameraState = null;
+        };
+
+        // show arrow for 2 seconds
+        TrackNodeVisualizer.Shared.Show(node);
+    } 
+    #endregion
 }

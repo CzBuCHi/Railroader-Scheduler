@@ -1,19 +1,16 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Game.Messages;
+﻿using Game.Messages;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
 using Scheduler.Commands.Abstract;
 using Scheduler.Data;
-using Track;
 using UI.Builder;
 using UI.EngineControls;
 using UnityEngine;
 
 namespace Scheduler.Commands;
 
-public sealed class ScheduleCommandMove(bool forward, bool before, int switchCount, int? maxSpeed) : ScheduleCommandBase
+public sealed class ScheduleCommandMove(bool forward, bool before, int switchCount, int? maxSpeed, bool clearSwitchesUnderTrain) : ScheduleCommandBase
 {
     public override string Identifier => "Move";
 
@@ -21,6 +18,7 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
     public bool Before { get; } = before;
     public int? MaxSpeed { get; } = maxSpeed;
     public int SwitchCount { get; } = switchCount;
+    public bool ClearSwitchesUnderTrain { get; } = clearSwitchesUnderTrain;
 
     public override string ToString() {
         return
@@ -44,67 +42,8 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
             SchedulerPlugin.DebugMessage("Executing order to stop before next switch");
         }
 
-        var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject);
-        var orders = persistence.Orders;
-        var coupledCars = locomotive.EnumerateCoupled(orders.Forward ? Car.End.F : Car.End.R).ToList();
-        var trainLength = coupledCars.Sum(car => car.carLength) + 1f * (coupledCars.Count - 1); // add 1m separation per car
-
-        SchedulerPlugin.DebugMessage($"Found locomotive {locomotive.DisplayName} with {coupledCars.Count} cars");
-
-        var startLocation = SchedulerUtility.FirstCarLocation(locomotive, Forward ? Car.End.F : Car.End.R);
-
-        var items = new List<(TrackSegment Segment, TrackNode Node)>();
-        var index = 0;
-        foreach (var item in SchedulerUtility.GetRoute(startLocation)) {
-            items.Add(item);
-            if (Graph.Shared!.IsSwitch(item.Node)) {
-                ++index;
-            }
-
-            if (index == SwitchCount) {
-                break;
-            }
-        }
-
-        foreach (var (_, node) in items) {
-            SchedulerPlugin.DebugMessage($"NODE: {node.id}");
-        }
-
-        var distance = SchedulerUtility.Distance(startLocation, items);
-
-        if (!Before) {
-            var (segment, node) = items.Last();
-            var extraDistance = trainLength;
-
-            // add extra segments after target node to fit train
-            while (extraDistance > 0) {
-                if (!SchedulerUtility.GetNextSegmentOnRoute(ref segment, ref node)) {
-                    return;
-                }
-
-                extraDistance -= segment.GetLength();
-                items.Add((segment, node));
-            }
-
-            distance += trainLength;
-        }
-
-        SchedulerPlugin.DebugMessage($"Distance: {distance}");
-
-        var moved = Graph.Shared!.LocationByMoving(startLocation, distance);
-        SchedulerPlugin.DebugMessage($"moved: {moved}");
-
-        var (lastSegment, lastNode) = items.Last();
-
-        var foulingDistance = Graph.Shared!.CalculateFoulingDistance(lastNode);
-        SchedulerPlugin.DebugMessage($"FoulingDistance: {foulingDistance}");
-
-        if (Graph.Shared.DecodeSwitchAt(lastNode, out var enter, out _, out _) && lastSegment != enter) {
-            distance -= foulingDistance + 6.1f;
-        }
-
-        SchedulerPlugin.DebugMessage($"Final distance: {distance}");
-
+        var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
+        var distance = SchedulerUtility.GetDistanceForSwitchOrder(SwitchCount, ClearSwitchesUnderTrain, Before, locomotive, Forward, out _);
         var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
         helper.SetOrdersValue(MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Forward, MaxSpeed, distance);
     }
@@ -118,7 +57,7 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
     }
 
     public override IScheduleCommand Clone() {
-        return new ScheduleCommandMove(Forward, Before, SwitchCount, MaxSpeed);
+        return new ScheduleCommandMove(Forward, Before, SwitchCount, MaxSpeed, ClearSwitchesUnderTrain);
     }
 }
 
@@ -128,6 +67,7 @@ public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBas
     private bool? _Before;
     private int? _SwitchCount;
     private int? _MaxSpeed;
+    private bool? _ClearSwitchesUnderTrain;
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
         switch (propertyName) {
@@ -146,6 +86,10 @@ public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBas
             case "MaxSpeed":
                 _MaxSpeed = serializer.Deserialize<int>(reader);
                 break;
+
+            case "ClearSwitchesUnderTrain":
+                _ClearSwitchesUnderTrain = serializer.Deserialize<bool>(reader);
+                break;
         }
     }
 
@@ -153,8 +97,9 @@ public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBas
         ThrowIfNull(_Forward, "Forward");
         ThrowIfNull(_Before, "Before");
         ThrowIfNull(_SwitchCount, "SwitchCount");
+        ThrowIfNull(_ClearSwitchesUnderTrain, "ClearSwitchesUnderTrain");
 
-        return new ScheduleCommandMove(_Forward!.Value, _Before!.Value, _SwitchCount!.Value, _MaxSpeed);
+        return new ScheduleCommandMove(_Forward!.Value, _Before!.Value, _SwitchCount!.Value, _MaxSpeed, _ClearSwitchesUnderTrain!.Value);
     }
 
     public override void Write(JsonWriter writer, ScheduleCommandMove value) {
@@ -171,16 +116,26 @@ public sealed class ScheduleCommandMoveSerializer : ScheduleCommandSerializerBas
             writer.WritePropertyName("MaxSpeed");
             writer.WriteValue(value.MaxSpeed.Value);
         }
+
+        writer.WritePropertyName("ClearSwitchesUnderTrain");
+        writer.WriteValue(value.ClearSwitchesUnderTrain);
     }
 }
 
 public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilderBase
 {
-    private bool _Direction;
+    private bool _Direction = true;
     private bool _RoadMode;
     private bool _SwitchLocation;
-    private int _MaxSpeed;
-    private int _SwitchCount;
+    private int _MaxSpeed = 15;
+    private int _SwitchCount = 1;
+    private bool _ClearSwitchesUnderTrain;
+
+    private BaseLocomotive _Locomotive = null!;
+
+    public override void Configure(BaseLocomotive locomotive) {
+        _Locomotive = locomotive;
+    }
 
     public override void BuildPanel(UIPanelBuilder builder) {
         // ReSharper disable once StringLiteralTypo
@@ -219,18 +174,28 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
                         strip.AddButton("-1", () => {
                             --_SwitchCount;
                             strip.Rebuild();
+                            MoveCameraToSwitch();
                         });
                     }
 
                     strip.AddButton("+1", () => {
                         ++_SwitchCount;
                         strip.Rebuild();
+                        MoveCameraToSwitch();
                     });
                 }
             )!
         );
+        builder.AddField("Include under train", builder.AddToggle(() => _ClearSwitchesUnderTrain, o => _ClearSwitchesUnderTrain = o)!);
 
         return;
+
+        void MoveCameraToSwitch() {
+            SchedulerUtility.GetDistanceForSwitchOrder(_SwitchCount, _ClearSwitchesUnderTrain, _SwitchLocation, _Locomotive, _Direction, out var targetSwitch);
+            if (targetSwitch != null) {
+                SchedulerUtility.MoveCameraToNode(targetSwitch);
+            }
+        }
 
         void SetToggle(ref bool field, bool value) {
             if (field == value) {
@@ -243,6 +208,6 @@ public sealed class ScheduleCommandMovePanelBuilder : ScheduleCommandPanelBuilde
     }
 
     public override IScheduleCommand CreateScheduleCommand() {
-        return new ScheduleCommandMove(_Direction, _SwitchLocation, _SwitchCount, _RoadMode ? _MaxSpeed : null);
+        return new ScheduleCommandMove(_Direction, _SwitchLocation, _SwitchCount, _RoadMode ? _MaxSpeed : null, _ClearSwitchesUnderTrain);
     }
 }

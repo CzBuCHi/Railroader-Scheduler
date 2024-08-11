@@ -21,7 +21,7 @@ public sealed class SchedulerDialog
 
     private void WindowOnOnShownDidChange(bool isShown) {
         if (!isShown) {
-            Messenger.Default!.Send(RebuildCarInspectorAIPanel.Instance);
+            Messenger.Default!.Send(new RebuildCarInspectorAIPanel());
         }
     }
 
@@ -57,6 +57,8 @@ public sealed class SchedulerDialog
 
     private void BuildWindow(UIPanelBuilder builder) {
         _Window.Title = _EditedSchedule == null ? "AI Scheduler" : "AI Scheduler | " + _EditedSchedule.Name;
+
+        builder.RebuildOnEvent<RebuildSchedulePanel>();
 
         builder.ButtonStrip(strip => {
             if (!_NewSchedule && _EditedSchedule == null) {
@@ -102,10 +104,16 @@ public sealed class SchedulerDialog
     private int _CurrentCommandTypeIndex;
     private bool _NewCommand;
 
+    private Schedule? _CurrentSchedule = null;
     private void BuildDetail(UIPanelBuilder builder, Schedule? schedule) {
         if (schedule == null) {
             builder.AddLabel(SchedulerPlugin.Settings.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
             return;
+        }
+
+        if (schedule != _CurrentSchedule) {
+            _CurrentSchedule = schedule;
+            Messenger.Default!.Send(new RebuildSchedulePanel());
         }
 
         BuildCommandList(builder, schedule);

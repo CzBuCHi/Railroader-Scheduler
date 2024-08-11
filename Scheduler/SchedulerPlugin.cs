@@ -6,6 +6,7 @@ using JetBrains.Annotations;
 using Railloader;
 using Scheduler.Managers;
 using Scheduler.UI;
+using Scheduler.Visualizers;
 using Serilog;
 using UI.Builder;
 using UnityEngine;
@@ -39,7 +40,8 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         var harmony = new Harmony(ModIdentifier);
         harmony.PatchAll();
 
-        Messenger.Default!.Register(this, new Action<MapDidUnloadEvent>(OnMapDidUnload));
+        Messenger.Default!.Register(this, new Action<MapDidLoadEvent>(OnMapDidLoad));
+        Messenger.Default.Register(this, new Action<MapDidUnloadEvent>(OnMapDidUnload));
 
         var go = new GameObject(ModIdentifier);
         Runner = go.AddComponent<ScheduleRunner>()!;
@@ -56,8 +58,14 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         Runner = null!;
     }
 
+    private void OnMapDidLoad(MapDidLoadEvent obj) {
+        var go = new GameObject();
+        go.AddComponent<TrackNodeVisualizer>();
+    }
+
     private void OnMapDidUnload(MapDidUnloadEvent obj) {
         _SchedulerDialog = null;
+        TrackNodeVisualizer.Shared = null!;
     }
 
     private static SchedulerDialog? _SchedulerDialog;
