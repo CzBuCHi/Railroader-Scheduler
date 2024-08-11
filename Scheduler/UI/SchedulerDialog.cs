@@ -103,8 +103,9 @@ public sealed class SchedulerDialog
 
     private int _CurrentCommandTypeIndex;
     private bool _NewCommand;
+    private int _CurrentCommandIndex;
+    private Schedule? _CurrentSchedule;
 
-    private Schedule? _CurrentSchedule = null;
     private void BuildDetail(UIPanelBuilder builder, Schedule? schedule) {
         if (schedule == null) {
             builder.AddLabel(SchedulerPlugin.Settings.Schedules.Any() ? "Please select a schedule." : "No schedules configured.");
@@ -123,7 +124,7 @@ public sealed class SchedulerDialog
         builder.VScrollView(view => {
             for (var i = 0; i < schedule.Commands.Count; i++) {
                 var text = schedule.Commands[i]!.ToString();
-                if (_EditedSchedule != null && _CurrentCommandTypeIndex == i) {
+                if (_EditedSchedule != null && _CurrentCommandIndex == i) {
                     text = text.ColorYellow()!;
                 }
 
@@ -141,6 +142,8 @@ public sealed class SchedulerDialog
                 strip.AddButton("Remove", () => RemoveCommand(builder, schedule));
                 strip.AddButton("Prev", () => PrevCommand(builder));
                 strip.AddButton("Next", () => NextCommand(builder, schedule));
+                strip.AddButton("Move up", () => MoveUp(builder, schedule));
+                strip.AddButton("Move down", () => MoveDown(builder, schedule));
             })!
         );
 
@@ -250,13 +253,13 @@ public sealed class SchedulerDialog
     private void ConfirmCreateCommand(UIPanelBuilder builder, IScheduleCommandPanelBuilder commandBuilder, Schedule schedule) {
         var command = commandBuilder.CreateScheduleCommand();
 
-        if (schedule.Commands.Count > _CurrentCommandTypeIndex) {
-            schedule.Commands.Insert(_CurrentCommandTypeIndex + 1, command);
-            ++_CurrentCommandTypeIndex;
+        if (schedule.Commands.Count > _CurrentCommandIndex) {
+            schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
         } else {
             schedule.Commands.Add(command);
         }
 
+        ++_CurrentCommandIndex;
         command.Execute(_Locomotive);
         _NewCommand = false;
         builder.Rebuild();
@@ -268,18 +271,40 @@ public sealed class SchedulerDialog
     }
 
     private void RemoveCommand(UIPanelBuilder builder, Schedule schedule) {
-        schedule.Commands.RemoveAt(_CurrentCommandTypeIndex);
-        _CurrentCommandTypeIndex = Math.Max(0, _CurrentCommandTypeIndex - 1);
+        schedule.Commands.RemoveAt(_CurrentCommandIndex);
+        _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
         builder.Rebuild();
     }
 
     private void PrevCommand(UIPanelBuilder builder) {
-        _CurrentCommandTypeIndex = Math.Max(0, _CurrentCommandTypeIndex - 1);
+        _CurrentCommandIndex = Math.Max(0, _CurrentCommandIndex - 1);
         builder.Rebuild();
     }
 
     private void NextCommand(UIPanelBuilder builder, Schedule schedule) {
-        _CurrentCommandTypeIndex = Math.Min(schedule.Commands.Count - 1, _CurrentCommandTypeIndex + 1);
+        _CurrentCommandIndex = Math.Min(schedule.Commands.Count - 1, _CurrentCommandIndex + 1);
+        builder.Rebuild();
+    }
+
+    private void MoveUp(UIPanelBuilder builder, Schedule schedule) {
+        if (_CurrentCommandIndex == 0) {
+            return;
+        }
+
+        (schedule.Commands[_CurrentCommandIndex], schedule.Commands[_CurrentCommandIndex - 1]) = (schedule.Commands[_CurrentCommandIndex - 1], schedule.Commands[_CurrentCommandIndex]);
+
+        --_CurrentCommandIndex;
+        builder.Rebuild();
+    }
+
+    private void MoveDown(UIPanelBuilder builder, Schedule schedule) {
+        if (_CurrentCommandIndex == schedule.Commands.Count-1) {
+            return;
+        }
+
+        (schedule.Commands[_CurrentCommandIndex], schedule.Commands[_CurrentCommandIndex + 1]) = (schedule.Commands[_CurrentCommandIndex + 1], schedule.Commands[_CurrentCommandIndex]);
+
+        ++_CurrentCommandIndex;
         builder.Rebuild();
     }
 

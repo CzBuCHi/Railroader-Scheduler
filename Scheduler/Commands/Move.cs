@@ -22,7 +22,7 @@ public sealed class ScheduleCommandMove(bool forward, bool before, int switchCou
 
     public override string ToString() {
         return
-            $"Move {(Forward ? "forward" : "back")} at {(MaxSpeed == null ? "yard Speed" : $"max. speed {MaxSpeed} MPH")} and " +
+            $"Move {(Forward ? "forward" : "back")} at {(MaxSpeed == null ? "yard Speed" : $"max. speed {(MaxSpeed < 45 ? MaxSpeed + " MPH" : "")}")} and " +
             $"stop {(Before ? "before" : "after")} {GetOrdinal(SwitchCount)} switch.";
     }
 

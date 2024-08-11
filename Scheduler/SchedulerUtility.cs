@@ -99,18 +99,9 @@ public static class SchedulerUtility
     }
 
     /// <summary> Verify, that AI can operate switch. </summary>
-    public static bool CanOperateSwitch(TrackNode node, Location startLocation, BaseLocomotive locomotive, List<(TrackSegment Segment, TrackNode Node)> items) {
+    public static bool CanOperateSwitch(TrackNode node, BaseLocomotive locomotive) {
         if (node is { IsCTCSwitch: true, IsCTCSwitchUnlocked: false }) {
             global::UI.Console.Console.shared!.AddLine($"AI Engineer {Hyperlink.To(locomotive)}: Switch controlled and locked by CTC. Call dispatcher.");
-            return false;
-        }
-
-        var distance = Distance(startLocation, items);
-        var (_, lastNode) = items.Last();
-        var foulingDistance = Graph.Shared!.CalculateFoulingDistance(lastNode);
-
-        if (distance > foulingDistance * 2) {
-            global::UI.Console.Console.shared!.AddLine($"AI Engineer {Hyperlink.To(locomotive)}: Switch is too far. I`m not walking there.");
             return false;
         }
 
@@ -139,10 +130,6 @@ public static class SchedulerUtility
 
     public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, out TrackNode? targetSwitch) {
         targetSwitch = null;
-
-        const float FEET_PER_METER = 3.28084f;
-        const float CAR_LENGTH_IN_METERS = 12.192f;
-        const float MAX_DISTANCE_IN_METERS = 100000f / FEET_PER_METER;
 
         if (stopBeforeSwitch)
         {
@@ -195,7 +182,7 @@ public static class SchedulerUtility
 
         var switchesFound = 0;
         var foundAllSwitches = false;
-        var safetyMargin = 2; // distance to leave clear of switch
+        var safetyMargin = 6; // distance to leave clear of switch
         var maxSegmentsToSearch = 50;
 
         for (var i = 0; i < maxSegmentsToSearch; i++)
@@ -209,13 +196,6 @@ public static class SchedulerUtility
             {
                 SchedulerPlugin.DebugMessage($"Adding distance from node {i + 1} to next node {i + 2} {segment.GetLength()}");
                 distanceInMeters += segment.GetLength();
-            }
-
-            if (distanceInMeters > MAX_DISTANCE_IN_METERS)
-            {
-                distanceInMeters = MAX_DISTANCE_IN_METERS;
-                SchedulerPlugin.DebugMessage($"Reached max distance {MAX_DISTANCE_IN_METERS}m");
-                break;
             }
 
             var node = segment.NodeForEnd(segmentEnd);
