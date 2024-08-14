@@ -5,6 +5,7 @@ using GalaSoft.MvvmLight.Messaging;
 using Model;
 using Scheduler.Data;
 using Scheduler.Messages;
+using Scheduler.Utility;
 using UI.Builder;
 using UI.Common;
 
@@ -123,7 +124,7 @@ public sealed class SchedulerDialog
     private void BuildCommandList(UIPanelBuilder builder, Schedule schedule) {
         builder.VScrollView(view => {
             for (var i = 0; i < schedule.Commands.Count; i++) {
-                var text = schedule.Commands[i]!.ToString();
+                var text = schedule.Commands[i]!.DisplayText;
                 if (_EditedSchedule != null && _CurrentCommandIndex == i) {
                     text = text.ColorYellow()!;
                 }
@@ -154,12 +155,12 @@ public sealed class SchedulerDialog
 
         builder.AddField("Command", builder.AddDropdown(ScheduleCommands.Commands, _CurrentCommandTypeIndex, o => PickCommandType(o, builder))!);
 
-        var panelBuilder = ScheduleCommands.CommandPanelBuilders[_CurrentCommandTypeIndex]!;
-        panelBuilder.Configure(_Locomotive);
-        panelBuilder.BuildPanel(builder);
 
+        var manager = ScheduleCommands.GetManager(_CurrentCommandTypeIndex);
+        manager.BuildPanel(builder, _Locomotive);
+        
         builder.ButtonStrip(strip => {
-            strip.AddButton("Confirm", () => ConfirmCreateCommand(builder, panelBuilder, schedule));
+            strip.AddButton("Confirm", () => ConfirmCreateCommand(builder, manager, schedule));
             strip.AddButton("Cancel", () => CancelCreateCommand(builder));
         });
     }
@@ -250,8 +251,8 @@ public sealed class SchedulerDialog
         builder.Rebuild();
     }
 
-    private void ConfirmCreateCommand(UIPanelBuilder builder, IScheduleCommandPanelBuilder commandBuilder, Schedule schedule) {
-        var command = commandBuilder.CreateScheduleCommand();
+    private void ConfirmCreateCommand(UIPanelBuilder builder, CommandManager manager, Schedule schedule) {
+        var command = manager.CreateCommand();
 
         if (schedule.Commands.Count > _CurrentCommandIndex) {
             schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
@@ -260,7 +261,6 @@ public sealed class SchedulerDialog
         }
 
         ++_CurrentCommandIndex;
-        command.Execute(_Locomotive);
         _NewCommand = false;
         builder.Rebuild();
     }

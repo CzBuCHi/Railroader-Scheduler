@@ -11,6 +11,12 @@
     <Content Include="*.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="Commands\OLD\**" />
+    <Content Remove="Commands\OLD\**" />
+    <EmbeddedResource Remove="Commands\OLD\**" />
+    <None Remove="Commands\OLD\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="System.Core" />
     <GameAssembly Include="Assembly-CSharp" />
     <GameAssembly Include="0Harmony" />

@@ -1,94 +1,70 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Model;
 using Newtonsoft.Json;
-using Scheduler.Commands.Abstract;
-using Scheduler.Data;
 using Scheduler.Extensions;
+using Scheduler.Utility;
 using UI.Builder;
 
 namespace Scheduler.Commands;
 
-public sealed class ScheduleCommandSetHandbrake(int carIndex) : ScheduleCommandBase
+public sealed class SetHandbrake(int carIndex) : ICommand
 {
-    public override string Identifier => "Set Handbrake";
+    public string DisplayText => $"Set handbrake on car #{CarIndex}";
 
     public int CarIndex { get; } = carIndex;
+}
 
-    public override string ToString()
-    {
-        return $"Set handbrake on car #{CarIndex}";
-    }
+public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
+{
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
 
-    public override void Execute(BaseLocomotive locomotive)
-    {
+        if (Command!.CarIndex == 0) {
+            locomotive.SetHandbrake(true);
+            yield break;
+        }
+
         var consist = locomotive.EnumerateConsist();
-        var cars = consist
-                   .Where(o => o.Car != locomotive) // exclude locomotive
-                   .ToDictionary(o => o.Position, o => o.Car);
+        var cars = consist.ToDictionary(o => o.Position, o => o.Car);
 
-        if (!cars.TryGetValue(CarIndex, out var car))
-        {
-            return;
+        if (!cars.TryGetValue(Command.CarIndex, out var car)) {
+            // TODO: Error message?
+            yield break;
         }
 
         car!.SetHandbrake(true);
     }
 
-    public override IScheduleCommand Clone()
-    {
-        return new ScheduleCommandSetHandbrake(CarIndex);
-    }
-}
-
-public sealed class ScheduleCommandSetHandbrakeSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetHandbrake>
-{
     private int? _CarIndex;
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer)
-    {
-        if (propertyName == "CarIndex")
-        {
+    public override void Serialize(JsonWriter writer) {
+        writer.WritePropertyName("CarIndex");
+        writer.WriteValue(Command!.CarIndex);
+    }
+
+    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+        if (propertyName == "CarIndex") {
             _CarIndex = serializer.Deserialize<int>(reader);
         }
     }
 
-    protected override ScheduleCommandSetHandbrake BuildScheduleCommand()
-    {
+    protected override SetHandbrake CreateCommandBase() {
         ThrowIfNull(_CarIndex, "CarIndex");
-        return new ScheduleCommandSetHandbrake(_CarIndex!.Value);
+        return new SetHandbrake(_CarIndex!.Value);
     }
 
-    public override void Write(JsonWriter writer, ScheduleCommandSetHandbrake value)
-    {
-        writer.WritePropertyName("CarIndex");
-        writer.WriteValue(value.CarIndex);
-    }
-}
-
-public sealed class ScheduleCommandSetHandbrakePanelBuilder : ScheduleCommandPanelBuilderBase
-{
-    private List<string> _TrainCars = null!;
-    private List<int> _TrainCarsPositions = null!;
     private int _TrainCarsIndex;
 
-
-    public override void Configure(BaseLocomotive locomotive)
-    {
-        SchedulerUtility.ResolveTrainCars(locomotive, out _TrainCars, out _TrainCarsPositions);
-    }
-
-    public override void BuildPanel(UIPanelBuilder builder) {
+    public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
+        SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions);
         builder.AddField("Car index",
-            builder.AddDropdown(_TrainCars, _TrainCarsIndex, o => {
+            builder.AddDropdown(trainCars, _TrainCarsIndex, o => {
                 _TrainCarsIndex = o;
+                _CarIndex = trainCarsPositions[o];
                 builder.Rebuild();
             })!
         );
-    }
-
-    public override IScheduleCommand CreateScheduleCommand()
-    {
-        return new ScheduleCommandSetHandbrake(_TrainCarsPositions[_TrainCarsIndex]);
     }
 }

@@ -1,9 +1,11 @@
-﻿using Model;
+﻿using System;
+using Model;
 using Scheduler.Data;
 using UnityEngine;
 
-namespace Scheduler.Commands.Abstract;
+namespace Scheduler.Commands.OLD.Abstract;
 
+[Obsolete]
 public abstract class ScheduleCommandBase : IScheduleCommand
 {
     public abstract string Identifier { get; }

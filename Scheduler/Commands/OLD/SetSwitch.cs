@@ -1,11 +1,12 @@
-﻿using Newtonsoft.Json;
-using Scheduler.Commands.Abstract;
+﻿using System;
+using Newtonsoft.Json;
+using Scheduler.Commands.OLD.Abstract;
 using Scheduler.Data;
 using Track;
 using UI.Builder;
 
-namespace Scheduler.Commands;
-
+namespace Scheduler.Commands.OLD;
+[Obsolete]
 public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : ScheduleCommandSwitchBase(front)
 {
     public override string Identifier => "Set Switch";
@@ -29,7 +30,7 @@ public sealed class ScheduleCommandSetSwitch(bool front, bool isThrown) : Schedu
         return new ScheduleCommandSetSwitch(Front, IsThrown);
     }
 }
-
+[Obsolete]
 public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandSetSwitch>
 {
     private bool? _Front;
@@ -66,7 +67,7 @@ public sealed class ScheduleCommandSetSwitchSerializer : ScheduleCommandSerializ
         writer.WriteValue(value.IsThrown);
     }
 }
-
+[Obsolete]
 public sealed class ScheduleCommandSetSwitchPanelBuilder : ScheduleCommandPanelBuilderBase
 {
     private bool _Front;

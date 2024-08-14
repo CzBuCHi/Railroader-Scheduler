@@ -1,15 +1,16 @@
 ﻿#region
 
+using System;
 using Newtonsoft.Json;
-using Scheduler.Commands.Abstract;
+using Scheduler.Commands.OLD.Abstract;
 using Scheduler.Data;
 using Track;
 using UI.Builder;
 
 #endregion
 
-namespace Scheduler.Commands;
-
+namespace Scheduler.Commands.OLD;
+[Obsolete]
 public sealed class ScheduleCommandRestoreSwitch(bool front) : ScheduleCommandSwitchBase(front)
 {
     public override string Identifier => "Restore Switch";
@@ -33,7 +34,7 @@ public sealed class ScheduleCommandRestoreSwitch(bool front) : ScheduleCommandSw
         return new ScheduleCommandRestoreSwitch(Front);
     }
 }
-
+[Obsolete]
 public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSerializerBase<ScheduleCommandRestoreSwitch>
 {
     private bool? _Front;
@@ -60,7 +61,7 @@ public sealed class ScheduleCommandRestoreSwitchSerializer : ScheduleCommandSeri
         writer.WriteValue(value.Front);
     }
 }
-
+[Obsolete]
 public sealed class ScheduleCommandRestoreSwitchPanelBuilder : ScheduleCommandPanelBuilderBase
 {
     private bool _Front;

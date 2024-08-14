@@ -1,33 +1,26 @@
-﻿using HarmonyLib;
+﻿using System.Collections;
+using System.Collections.Generic;
+using HarmonyLib;
 using Model;
-using Scheduler.Commands.Abstract;
-using Scheduler.Data;
+using Scheduler.Utility;
 
 namespace Scheduler.Commands;
 
-public sealed class ScheduleCommandReleaseHandbrakes : ScheduleCommandBase
+/// <summary> Connect air on train. </summary>
+public sealed class ReleaseHandbrakes : ICommand
 {
-    public override string Identifier => "Release Handbrakes";
+    public string DisplayText => "Release Handbrakes";
+}
 
-    public override void Execute(BaseLocomotive locomotive)
-    {
+public sealed class ReleaseHandbrakesManager : CommandManager<ReleaseHandbrakes>
+{
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
+        yield break;
     }
 
-    public override IScheduleCommand Clone()
-    {
-        return new ScheduleCommandReleaseHandbrakes();
-    }
-}
-
-public sealed class ScheduleCommandReleaseHandbrakesSerializer : ScheduleCommandSerializerBase<ScheduleCommandReleaseHandbrakes>
-{
-}
-
-public sealed class ScheduleCommandReleaseHandbrakesPanelBuilder : ScheduleCommandPanelBuilderBase
-{
-    public override IScheduleCommand CreateScheduleCommand()
-    {
-        return new ScheduleCommandReleaseHandbrakes();
+    protected override ReleaseHandbrakes CreateCommandBase() {
+        return new ReleaseHandbrakes();
     }
 }

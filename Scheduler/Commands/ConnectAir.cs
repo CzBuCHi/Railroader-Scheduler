@@ -1,51 +1,41 @@
-﻿using Game.Messages;
+﻿using System.Collections;
+using System.Collections.Generic;
+using Game.Messages;
 using Game.State;
 using Model;
-using Scheduler.Commands.Abstract;
-using Scheduler.Data;
 using Scheduler.HarmonyPatches;
+using Scheduler.Utility;
 
 namespace Scheduler.Commands;
 
-public sealed class ScheduleCommandConnectAir : ScheduleCommandBase
+/// <summary> Connect air on train. </summary>
+public sealed class ConnectAir : ICommand
 {
-    public override string Identifier => "Connect Air";
+    public string DisplayText => "Connect Air";
+}
 
-    public override void Execute(BaseLocomotive locomotive)
-    {
-        foreach (var car in locomotive.set!.Cars!)
-        {
-            ConnectAirCore(car, Car.LogicalEnd.A);
-            ConnectAirCore(car, Car.LogicalEnd.B);
+public sealed class ConnectAirManager : CommandManager<ConnectAir>
+{
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
+
+        foreach (var car in locomotive.set!.Cars!) {
+            ConnectAirOnEnd(car, Car.LogicalEnd.A);
+            ConnectAirOnEnd(car, Car.LogicalEnd.B);
         }
 
-        return;
+        yield break;
 
-        static void ConnectAirCore(Car car, Car.LogicalEnd end)
-        {
+        static void ConnectAirOnEnd(Car car, Car.LogicalEnd end) {
             StateManager.ApplyLocal(new PropertyChange(car.id!, CarPatches.KeyValueKeyFor(Car.EndGearStateKey.Anglecock, car.LogicalToEnd(end)), new FloatPropertyValue(car[end]!.IsCoupled ? 1f : 0f)));
 
-            if (car.TryGetAdjacentCar(end, out var adjacent))
-            {
+            if (car.TryGetAdjacentCar(end, out var adjacent)) {
                 StateManager.ApplyLocal(new SetGladhandsConnected(car.id!, adjacent!.id!, true));
             }
         }
     }
 
-    public override IScheduleCommand Clone()
-    {
-        return new ScheduleCommandConnectAir();
-    }
-}
-
-public sealed class ScheduleCommandConnectAirSerializer : ScheduleCommandSerializerBase<ScheduleCommandConnectAir>
-{
-}
-
-public sealed class ScheduleCommandConnectAirPanelBuilder : ScheduleCommandPanelBuilderBase
-{
-    public override IScheduleCommand CreateScheduleCommand()
-    {
-        return new ScheduleCommandConnectAir();
+    protected override ConnectAir CreateCommandBase() {
+        return new ConnectAir();
     }
 }

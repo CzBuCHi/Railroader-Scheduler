@@ -1,12 +1,9 @@
+command move: reset switchcount to 1 after confirm
 
-set switch
-    - fails to throw switch if fouling closer one:
+command move: check segment under train - needs to be connected to target node
 
-    /    /          
----S2---S1---
-         ^ train end here
+command: set switch ABCD to reverze
 
-S2 should be thrown
+command: reset switch ABCD
 
-    
-visualize target switch? (map editor node chevron)    
+commands: convert to ICommand & ICommandRunner<TCommand> [WIP]

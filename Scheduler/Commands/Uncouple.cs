@@ -1,62 +1,60 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Model;
 using Newtonsoft.Json;
-using Scheduler.Commands.Abstract;
-using Scheduler.Data;
 using Scheduler.Extensions;
+using Scheduler.Utility;
 using UI.Builder;
 
 namespace Scheduler.Commands;
 
-public sealed class ScheduleCommandUncouple(int carIndex) : ScheduleCommandBase
+public sealed class Uncouple(int carIndex) : ICommand
 {
-    public override string Identifier => "Uncouple";
+    public string DisplayText => $"Uncouple car #{CarIndex}";
 
     public int CarIndex { get; } = carIndex;
+}
 
-    public override string ToString()
-    {
-        return $"Uncouple car #{CarIndex}";
-    }
+public sealed class UncoupleManager : CommandManager<Uncouple>
+{
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
+        if (Command!.CarIndex == 0) {
+            locomotive.SetHandbrake(true);
+            yield break;
+        }
 
-    public override void Execute(BaseLocomotive locomotive)
-    {
         var consist = locomotive.EnumerateConsist();
-        var cars = consist
-                   .Where(o => o.Car != locomotive) // exclude locomotive
-                   .ToDictionary(o => o.Position, o => o.Car);
+        var cars = consist.ToDictionary(o => o.Position, o => o.Car);
 
-        var carIndex = CarIndex;
+        var carIndex = Command.CarIndex;
 
         Car carToDisconnect;
         Car newEndCar;
         int index;
-        if (carIndex > 0)
-        {
+        if (carIndex > 0) {
             index = carIndex - 1;
 
-            if (!cars.TryGetValue(carIndex - 1, out carToDisconnect))
-            {
-                return;
+            if (!cars.TryGetValue(carIndex - 1, out carToDisconnect)) {
+                // TODO: Error message?
+                yield break;
             }
 
-            if (!cars.TryGetValue(carIndex, out newEndCar))
-            {
-                return;
+            if (!cars.TryGetValue(carIndex, out newEndCar)) {
+                // TODO: Error message?
+                yield break;
             }
-        }
-        else
-        {
+        } else {
             index = carIndex;
-            if (!cars.TryGetValue(carIndex, out carToDisconnect))
-            {
-                return;
+            if (!cars.TryGetValue(carIndex, out carToDisconnect)) {
+                // TODO: Error message?
+                yield break;
             }
 
-            if (!cars.TryGetValue(carIndex + 1, out newEndCar))
-            {
-                return;
+            if (!cars.TryGetValue(carIndex + 1, out newEndCar)) {
+                // TODO: Error message?
+                yield break;
             }
         }
 
@@ -74,60 +72,34 @@ public sealed class ScheduleCommandUncouple(int carIndex) : ScheduleCommandBase
         newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.CutLever, 1f);
     }
 
-    public override IScheduleCommand Clone()
-    {
-        return new ScheduleCommandUncouple(CarIndex);
-    }
-}
-
-public sealed class ScheduleCommandUncoupleSerializer : ScheduleCommandSerializerBase<ScheduleCommandUncouple>
-{
     private int? _CarIndex;
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer)
-    {
-        if (propertyName == "CarIndex")
-        {
+    public override void Serialize(JsonWriter writer) {
+        writer.WritePropertyName("CarIndex");
+        writer.WriteValue(Command!.CarIndex);
+    }
+
+    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+        if (propertyName == "CarIndex") {
             _CarIndex = serializer.Deserialize<int>(reader);
         }
     }
 
-    protected override ScheduleCommandUncouple BuildScheduleCommand()
-    {
+    protected override Uncouple CreateCommandBase() {
         ThrowIfNull(_CarIndex, "CarIndex");
-
-        return new ScheduleCommandUncouple(_CarIndex!.Value);
+        return new Uncouple(_CarIndex!.Value);
     }
 
-    public override void Write(JsonWriter writer, ScheduleCommandUncouple value)
-    {
-        writer.WritePropertyName("CarIndex");
-        writer.WriteValue(value.CarIndex);
-    }
-}
-
-public sealed class ScheduleCommandUncouplePanelBuilder : ScheduleCommandPanelBuilderBase
-{
-    private List<string> _TrainCars = null!;
-    private List<int> _TrainCarsPositions = null!;
     private int _TrainCarsIndex;
 
-    public override void Configure(BaseLocomotive locomotive)
-    {
-        SchedulerUtility.ResolveTrainCars(locomotive, out _TrainCars, out _TrainCarsPositions);
-    }
-
-    public override void BuildPanel(UIPanelBuilder builder) {
+    public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
+        SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions);
         builder.AddField("Car index",
-            builder.AddDropdown(_TrainCars, _TrainCarsIndex, o => {
+            builder.AddDropdown(trainCars, _TrainCarsIndex, o => {
                 _TrainCarsIndex = o;
+                _CarIndex = trainCarsPositions[o];
                 builder.Rebuild();
             })!
         );
-    }
-
-    public override IScheduleCommand CreateScheduleCommand()
-    {
-        return new ScheduleCommandUncouple(_TrainCarsPositions[_TrainCarsIndex]);
     }
 }
