@@ -33,16 +33,16 @@ public static class SchedulerUtility
     }
 
     /// <summary>
-    ///     Returns next node on route.
-    ///                {segment}
+    ///     Returns next segment on route.
+    ///                {current segment}
     ///                ^node
     ///     ---N-------N-------N
-    ///        {segment}
+    ///        {final segment}
     ///        ^node
     /// </summary>
     public static bool GetNextSegmentOnRoute(ref TrackSegment segment, ref TrackNode node) {
         var localSegment = segment;
-        if (Graph.Shared!.NodeIsDeadEnd(node, out _)) {
+        if (Graph.Shared.NodeIsDeadEnd(node, out _)) {
             SchedulerPlugin.DebugMessage($"Node {node.id} is bumper");
             return false;
         }
@@ -68,6 +68,78 @@ public static class SchedulerUtility
         segment = localSegment;
         node = localSegment.GetOtherNode(node)!;
         return true;
+    }
+
+    /// <summary>
+    ///     Returns previous segment on route.
+    ///                {final segment}
+    ///                ^node
+    ///     ---N-------N-------N
+    ///        {current segment}
+    ///        ^node
+    /// </summary>
+    public static bool GetPreviousSegmentOrRoute(ref TrackSegment segment, ref TrackNode node) {
+        var localSegment = segment;
+        var otherNode = segment.GetOtherNode(node)!;
+
+        if (Graph.Shared.NodeIsDeadEnd(otherNode, out _)) {
+            SchedulerPlugin.DebugMessage($"Node {otherNode.id} is bumper");
+            return false;
+        }
+
+        if (Graph.Shared.DecodeSwitchAt(otherNode, out var enter, out var normal, out var thrown)) {
+            // if we are coming from a switch exit, the next segment is the switch entrance
+            if (localSegment != enter) {
+                SchedulerPlugin.DebugMessage($"Switch {otherNode.id} only has one exit");
+                localSegment = enter;
+            }
+            else {
+                // otherwise depends on if the switch is thrown
+                SchedulerPlugin.DebugMessage($"Switch {otherNode.id}: following {(otherNode.isThrown ? "thrown" : "normal")} exit");
+                localSegment = otherNode.isThrown ? thrown : normal;
+            }
+        }
+        else {
+            // simple node - get other segment
+            SchedulerPlugin.DebugMessage($"Node {otherNode.id} is not a switch");
+            localSegment = Graph.Shared.SegmentsConnectedTo(otherNode)!.First(o => o != localSegment);
+        }
+
+        segment = localSegment;
+        node = localSegment.GetOtherNode(otherNode)!;
+        return true;
+    }
+
+
+
+    /// <summary>
+    /// Returns switch near locomotive.
+    /// </summary>
+    public static bool FindSwitchNearTrain(BaseLocomotive locomotive, out TrackSegment? nearSegment, out TrackNode? switchNode) {
+        var segment = locomotive.LocationF.segment!;
+        var node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.B : TrackSegment.End.A);
+        while (!Graph.Shared.IsSwitch(node)) {
+            if (!GetNextSegmentOnRoute(ref segment, ref node)) {
+                node = null;
+            }
+        }
+
+        if (node == null) {
+            segment = locomotive.LocationF.segment!;
+            node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.A : TrackSegment.End.B);
+            while (!Graph.Shared.IsSwitch(node)) {
+                if (!GetNextSegmentOnRoute(ref segment, ref node)) {
+                    nearSegment = null;
+                    switchNode = null;
+                    return false;
+                }
+            }
+        }
+
+        nearSegment = segment;
+        switchNode = node;
+        return true;
+
     }
 
     /// <summary>
@@ -115,12 +187,14 @@ public static class SchedulerUtility
     }
 
     /// <summary> Resolve train cars and calculate their relative position from locomotive. </summary>
-    public static void ResolveTrainCars(BaseLocomotive locomotive, out List<string> trainCars, out List<int> trainCarsPositions) {
-        var carIndices = locomotive.EnumerateConsist()
-                                   .Where(o => o.Car != locomotive) // skip locomotive
-                                   .ToArray();
+    public static void ResolveTrainCars(BaseLocomotive locomotive, out List<string> trainCars, out List<int> trainCarsPositions, bool includeLocomotive) {
+        var consist = locomotive.EnumerateConsist();
+        if (!includeLocomotive) {
+            consist = consist.Where(o => o.Position != 0);
+        }
 
-        trainCars = carIndices.Select(o => $"Car #{o.Position} ({o.Car!.DisplayName})").ToList();
+        var carIndices = consist.ToArray();
+        trainCars = carIndices.Select(o => o.Position == 0 ? $"Locomotive ({o.Car!.DisplayName})" : $"Car #{o.Position} ({o.Car!.DisplayName})").ToList();
         trainCarsPositions = carIndices.Select(o => o.Position).ToList();
     }
 
@@ -333,28 +407,32 @@ public static class SchedulerUtility
     private static (Vector3 position, bool isFirstPerson)? _CameraState;
 
     /// <summary> Move 3rd person camera to selected track node and if player do not move camera then return back to original position after 2 seconds. </summary>
-    public static void MoveCameraToNode(TrackNode node) {
+    public static void MoveCameraToNode(TrackNode node, bool returnBack) {
         var cameraSelector = CameraSelector.shared!;
 
-        // ignore camera locations when arrow is shown
-        _CameraState ??= (cameraSelector.CurrentCameraPosition, cameraSelector.CurrentCameraIsFirstPerson);
+        if (returnBack) {
+            // ignore camera locations when arrow is shown
+            _CameraState ??= (cameraSelector.CurrentCameraPosition, cameraSelector.CurrentCameraIsFirstPerson);
+        }
 
         // move camera
         cameraSelector.ZoomToPoint(node.transform!.localPosition);
 
-        var afterMove = cameraSelector.CurrentCameraPosition;
-        TrackNodeVisualizer.Shared.OnHidden = () => {
-            // move camera back if was not moved
-            if (cameraSelector.CurrentCameraPosition == afterMove) {
-                if (_CameraState.Value.isFirstPerson) {
-                    cameraSelector.SelectCamera(CameraSelector.CameraIdentifier.FirstPerson);
-                } else {
-                    cameraSelector.ZoomToPoint(_CameraState.Value.position);
+        if (returnBack) {
+            var afterMove = cameraSelector.CurrentCameraPosition;
+            TrackNodeVisualizer.Shared.OnHidden = () => {
+                // move camera back if was not moved
+                if (cameraSelector.CurrentCameraPosition == afterMove) {
+                    if (_CameraState!.Value.isFirstPerson) {
+                        cameraSelector.SelectCamera(CameraSelector.CameraIdentifier.FirstPerson);
+                    } else {
+                        cameraSelector.ZoomToPoint(_CameraState.Value.position);
+                    }
                 }
-            }
 
-            _CameraState = null;
-        };
+                _CameraState = null;
+            };
+        }
 
         // show arrow for 2 seconds
         TrackNodeVisualizer.Shared.Show(node);

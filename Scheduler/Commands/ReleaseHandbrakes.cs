@@ -15,12 +15,14 @@ public sealed class ReleaseHandbrakes : ICommand
 public sealed class ReleaseHandbrakesManager : CommandManager<ReleaseHandbrakes>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
+        base.Execute(state);
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
         yield break;
     }
 
-    protected override ReleaseHandbrakes CreateCommandBase() {
+    public override ICommand CreateCommand() {
         return new ReleaseHandbrakes();
     }
 }

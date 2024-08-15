@@ -19,6 +19,8 @@ public sealed class SetHandbrake(int carIndex) : ICommand
 public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
+        base.Execute(state);
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         if (Command!.CarIndex == 0) {
@@ -50,18 +52,18 @@ public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
         }
     }
 
-    protected override SetHandbrake CreateCommandBase() {
+    public override ICommand CreateCommand() {
         ThrowIfNull(_CarIndex, "CarIndex");
         return new SetHandbrake(_CarIndex!.Value);
     }
 
-    private int _TrainCarsIndex;
+    private int _DropdownIndex;
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
-        SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions);
+        SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions, true);
         builder.AddField("Car index",
-            builder.AddDropdown(trainCars, _TrainCarsIndex, o => {
-                _TrainCarsIndex = o;
+            builder.AddDropdown(trainCars, _DropdownIndex, o => {
+                _DropdownIndex = o;
                 _CarIndex = trainCarsPositions[o];
                 builder.Rebuild();
             })!

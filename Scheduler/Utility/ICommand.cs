@@ -19,13 +19,13 @@ internal sealed class CommandConverter : JsonConverter<ICommand>
 
         writer.WriteStartObject();
         writer.WritePropertyName("$Type");
-        // TODO: AssemblyQualifiedName ?
-        writer.WriteValue(value.GetType().Name);
-        var manager = ScheduleCommands.GetManager(value);
+        writer.WriteValue(value.GetType().FullName);
+        var manager = ScheduleCommands.GetManager(value.GetType());
         if (manager == null) {
             throw new JsonSerializationException($"Serializer for '{value.GetType().Name}' was not found.");
         }
 
+        manager.Command = value;
         manager.Serialize(writer);
         writer.WriteEndObject();
     }
@@ -51,7 +51,7 @@ internal sealed class CommandConverter : JsonConverter<ICommand>
             throw new JsonSerializationException($"Cannot resolve command from '{typeName}'.");
         }
 
-        var manager = ScheduleCommands.GetManager(existingValue!);
+        var manager = ScheduleCommands.GetManager(type);
         if (manager == null) {
             throw new JsonSerializationException($"Serializer for '{typeName}' was not found.");
         }

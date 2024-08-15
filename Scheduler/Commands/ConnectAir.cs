@@ -17,6 +17,7 @@ public sealed class ConnectAir : ICommand
 public sealed class ConnectAirManager : CommandManager<ConnectAir>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
+        base.Execute(state);
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         foreach (var car in locomotive.set!.Cars!) {
@@ -35,7 +36,7 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
         }
     }
 
-    protected override ConnectAir CreateCommandBase() {
+    public override ICommand CreateCommand() {
         return new ConnectAir();
     }
 }

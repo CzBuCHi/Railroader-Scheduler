@@ -1,9 +1,10 @@
-command move: reset switchcount to 1 after confirm
+commands:
+- set switch
+    - prev/next switch resolution
 
-command move: check segment under train - needs to be connected to target node
+- move
+    - reset switchcount to 1 after confirm
+    - check segment under train - needs to be connected to target node
 
-command: set switch ABCD to reverze
 
-command: reset switch ABCD
 
-commands: convert to ICommand & ICommandRunner<TCommand> [WIP]
