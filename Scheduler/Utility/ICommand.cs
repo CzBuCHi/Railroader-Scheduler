@@ -26,7 +26,7 @@ internal sealed class CommandConverter : JsonConverter<ICommand>
         }
 
         manager.Command = value;
-        manager.Serialize(writer);
+        manager.SerializeProperties(writer);
         writer.WriteEndObject();
     }
 

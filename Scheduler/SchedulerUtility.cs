@@ -202,8 +202,9 @@ public static class SchedulerUtility
 
 
 
-    public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, out TrackNode? targetSwitch) {
+    public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, out TrackNode? targetSwitch, out TrackSegment? targetSegment) {
         targetSwitch = null;
+        targetSegment = null;
 
         if (stopBeforeSwitch)
         {
@@ -280,6 +281,7 @@ public static class SchedulerUtility
             }
 
             targetSwitch = node;
+            targetSegment = segment;
 
             if (graph.IsSwitch(node))
             {
@@ -342,6 +344,7 @@ public static class SchedulerUtility
         {
             var node = segment.NodeForEnd(segmentEnd);
             targetSwitch = node;
+            targetSegment = segment;
 
             graph.DecodeSwitchAt(node, out var switchEnterSegment, out _, out _);
             var nodeFoulingDistance = graph.CalculateFoulingDistance(node);

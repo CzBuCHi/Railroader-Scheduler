@@ -5,7 +5,7 @@ using Track;
 
 namespace Scheduler.Commands;
 
-/// <summary> Restore state of switches, that where thrown by this schedule. </summary>
+/// <summary> Restore state of switches, that where thrown by this schedule (See <see cref="SetSwitch"/> command). </summary>
 public sealed class RestoreSwitches : ICommand
 {
     public string DisplayText => "Restore Switches";
@@ -14,8 +14,6 @@ public sealed class RestoreSwitches : ICommand
 public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        base.Execute(state);
-
         state.TryGetValue("switches", out var value);
         if (value == null) {
             yield break;

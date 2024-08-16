@@ -6,7 +6,7 @@ using Scheduler.Utility;
 
 namespace Scheduler.Commands;
 
-/// <summary> Connect air on train. </summary>
+/// <summary> Release all handbrakes on train. </summary>
 public sealed class ReleaseHandbrakes : ICommand
 {
     public string DisplayText => "Release Handbrakes";
@@ -15,8 +15,6 @@ public sealed class ReleaseHandbrakes : ICommand
 public sealed class ReleaseHandbrakesManager : CommandManager<ReleaseHandbrakes>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        base.Execute(state);
-
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
         yield break;

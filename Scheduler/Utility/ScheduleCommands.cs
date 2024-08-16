@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Scheduler.Commands;
@@ -12,14 +11,15 @@ public static class ScheduleCommands
 {
     private static readonly ILogger _Logger = Log.ForContext(typeof(SchedulerPlugin))!;
 
-    static ScheduleCommands()
-    {
+    static ScheduleCommands() {
         Register<ConnectAir, ConnectAirManager>();
         Register<ReleaseHandbrakes, ReleaseHandbrakesManager>();
         Register<SetHandbrake, SetHandbrakeManager>();
         Register<Uncouple, UncoupleManager>();
         Register<RestoreSwitches, RestoreSwitchesManager>();
         Register<SetSwitch, SetSwitchManager>();
+        Register<Wait, WaitManager>();
+        Register<Move, MoveManager>();
     }
 
     private static readonly Dictionary<Type, Type> _Managers = new();

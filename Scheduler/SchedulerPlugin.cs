@@ -4,12 +4,15 @@ using Game.Events;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Railloader;
+using Scheduler.Messages;
 using Scheduler.UI;
 using Scheduler.Utility;
 using Scheduler.Visualizers;
 using Serilog;
+using Track;
 using UI.Builder;
 using UnityEngine;
+using UnityEngine.Windows;
 using ILogger = Serilog.ILogger;
 using Object = UnityEngine.Object;
 
@@ -58,17 +61,17 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         Runner = null!;
     }
 
-    private void OnMapDidLoad(MapDidLoadEvent obj) {
-        var go = new GameObject();
-        go.AddComponent<TrackNodeVisualizer>();
+    private static void OnMapDidLoad(MapDidLoadEvent obj) {
+        CreateVisualizers();
     }
 
-    private void OnMapDidUnload(MapDidUnloadEvent obj) {
+    private static void OnMapDidUnload(MapDidUnloadEvent obj) {
         _SchedulerDialog = null;
         TrackNodeVisualizer.Shared = null!;
     }
 
     private static SchedulerDialog? _SchedulerDialog;
+    private static TrackNode? _SelectedSwitch;
     public static SchedulerDialog SchedulerDialog => _SchedulerDialog ??= new SchedulerDialog();
 
     public void ModTabDidOpen(UIPanelBuilder builder) {
@@ -90,6 +93,35 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     public static void DebugMessage(string message) {
         if (Settings.Debug) {
             global::UI.Console.Console.shared!.AddLine($"Debug: {message}");
+        }
+    }
+
+    public static bool ShowTrackSwitchVisualizers { get; set; }
+
+    public static TrackNode? SelectedSwitch {
+        get => _SelectedSwitch;
+        set {
+            if (_SelectedSwitch == value) {
+                return;
+            }
+
+            _SelectedSwitch = value;
+            Messenger.Default!.Send(new SelectedSwitchChanged());
+        }
+    }
+
+    private static void CreateVisualizers() {
+        var go = new GameObject();
+        go.AddComponent<TrackNodeVisualizer>();
+
+        foreach (var trackNode in Graph.Shared.Nodes) {
+            if (!Graph.Shared.IsSwitch(trackNode)) {
+                continue;
+            }
+
+            var trackNodeVisualizer = new GameObject("TrackSwitchVisualizer");
+            trackNodeVisualizer.transform.SetParent(trackNode.transform);
+            trackNodeVisualizer.AddComponent<TrackSwitchVisualizer>();
         }
     }
 }

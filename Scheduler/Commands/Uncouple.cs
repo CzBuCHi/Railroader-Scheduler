@@ -9,6 +9,8 @@ using UI.Builder;
 
 namespace Scheduler.Commands;
 
+/// <summary> Uncouple given car. </summary>
+/// <param name="carIndex">Car index counted from locomotive.</param>
 public sealed class Uncouple(int carIndex) : ICommand
 {
     public string DisplayText => $"Uncouple car #{CarIndex}";
@@ -19,8 +21,6 @@ public sealed class Uncouple(int carIndex) : ICommand
 public sealed class UncoupleManager : CommandManager<Uncouple>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        base.Execute(state);
-
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         if (Command!.CarIndex == 0) {
             locomotive.SetHandbrake(true);
@@ -76,7 +76,7 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
 
     private int? _CarIndex;
 
-    public override void Serialize(JsonWriter writer) {
+    public override void SerializeProperties(JsonWriter writer) {
         writer.WritePropertyName("CarIndex");
         writer.WriteValue(Command!.CarIndex);
     }

@@ -5,7 +5,8 @@ using UnityEngine;
 
 namespace Scheduler.Visualizers;
 
-public sealed class TrackNodeVisualizer : MonoBehaviour
+/// <summary> Used by editor of <see cref="Move"/> command. </summary>
+internal sealed class TrackNodeVisualizer : MonoBehaviour
 {
     public static TrackNodeVisualizer Shared = null!;
 
@@ -50,5 +51,4 @@ public sealed class TrackNodeVisualizer : MonoBehaviour
     }
 
     public Action? OnHidden;
-    
 }

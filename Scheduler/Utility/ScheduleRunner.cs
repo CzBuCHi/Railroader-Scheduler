@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Model;
 using Scheduler.Data;
 using Serilog;
-using Serilog.Core;
 using UnityEngine;
 using ILogger = Serilog.ILogger;
 
@@ -42,7 +41,7 @@ internal sealed class ScheduleRunner : MonoBehaviour
         };
         ExecuteSingle(command, state);
     }
-    
+
     private static IEnumerator ExecuteSingle(ICommand command, Dictionary<string, object> state) {
         _Logger.Information("Executing command " + command.GetType().Name);
 

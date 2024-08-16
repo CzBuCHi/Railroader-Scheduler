@@ -1,10 +1,5 @@
-commands:
-- set switch
-    - prev/next switch resolution
-
 - move
-    - reset switchcount to 1 after confirm
-    - check segment under train - needs to be connected to target node
+    - start from predicted schedule location instead onf train location ?
 
 
 

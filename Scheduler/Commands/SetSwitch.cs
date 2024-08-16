@@ -1,13 +1,19 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using GalaSoft.MvvmLight.Messaging;
 using Model;
 using Newtonsoft.Json;
+using Scheduler.Messages;
 using Scheduler.Utility;
 using Track;
 using UI.Builder;
 
 namespace Scheduler.Commands;
 
+/// <summary> Save current switch state and set desired state. </summary>
+/// <param name="id">Target switch id.</param>
+/// <param name="isThrown">Desired state of switch.</param>
 public sealed class SetSwitch(string id, bool isThrown) : ICommand
 {
     public string DisplayText => $"Set switch '{Id}'";
@@ -16,11 +22,23 @@ public sealed class SetSwitch(string id, bool isThrown) : ICommand
     public bool IsThrown { get; } = isThrown;
 }
 
-public sealed class SetSwitchManager : CommandManager<SetSwitch>
+public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
 {
-    public override IEnumerator Execute(Dictionary<string, object> state) {
-        base.Execute(state);
+    public SetSwitchManager() {
+        Messenger.Default!.Register<SelectedSwitchChanged>(this, OnSelectedSwitchChanged);
+    }
 
+    public void Dispose() {
+        Messenger.Default!.Unregister(this);
+    }
+
+    private void OnSelectedSwitchChanged(SelectedSwitchChanged _) {
+        _Id = SchedulerPlugin.SelectedSwitch?.id;
+    }
+
+    public override bool ShowTrackSwitchVisualizers => true;
+
+    public override IEnumerator Execute(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         var node = Graph.Shared.GetNode(Command!.Id);
@@ -47,9 +65,11 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>
     private string? _Id;
     private bool? _IsThrown;
 
-    public override void Serialize(JsonWriter writer) {
+    public override void SerializeProperties(JsonWriter writer) {
         writer.WritePropertyName("Id");
         writer.WriteValue(Command!.Id);
+        writer.WritePropertyName("IsThrown");
+        writer.WriteValue(Command!.IsThrown);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
@@ -68,18 +88,8 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>
         return new SetSwitch(_Id!, _IsThrown!.Value);
     }
 
-    private TrackNode? _Node;       // current switch node
-    private TrackSegment? _Segment; // segment connected to _Node closer to train
-
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
-        if (_Node == null) {
-            if (!SchedulerUtility.FindSwitchNearTrain(locomotive, out _Segment, out _Node)) {
-                // TODO: Log error
-                return;
-            }
-
-            _Id = _Node.id;
-        }
+        builder.RebuildOnEvent<SelectedSwitchChanged>();
 
         builder.AddField("Orientation",
             builder.ButtonStrip(strip => {
@@ -87,25 +97,7 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>
                 strip.AddButtonSelectable("Reversed", _IsThrown == true, () => SetToggle(ref _IsThrown, true));
             })!
         );
-        builder.AddField("Switch",
-            builder.ButtonStrip(strip => {
-                strip.AddButton("Previous", () => {
-                    if (SchedulerUtility.GetPreviousSegmentOrRoute(ref _Segment!, ref _Node)) {
-                        _Id = _Node.id;
-                        SchedulerUtility.MoveCameraToNode(_Node, false);
-                        builder.Rebuild();
-                    }
-                });
-                strip.AddButton("Next", () => {
-                    if (SchedulerUtility.GetNextSegmentOnRoute(ref _Segment!, ref _Node)) {
-                        _Id = _Node.id;
-                        SchedulerUtility.MoveCameraToNode(_Node, false);
-                        builder.Rebuild();
-                    }
-                });
-            })!
-        );
-
+        builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => _Id = o, "You can select Id by clicking on switch")!);
         return;
 
         void SetToggle(ref bool? field, bool value) {

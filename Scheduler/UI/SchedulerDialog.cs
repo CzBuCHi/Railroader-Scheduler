@@ -63,22 +63,22 @@ public sealed class SchedulerDialog
 
         builder.ButtonStrip(strip => {
             if (!_NewSchedule && _EditedSchedule == null) {
-                strip.AddButton("Create new", () => CreateNewSchedule(builder));
+                strip.AddButton("Create new", () => CreateNewScheduleBegin(builder));
 
                 if (_SelectedScheduleName.Value != null) {
                     strip.AddButton("Remove", () => RemoveSchedule(builder));
-                    strip.AddButton("Rename", () => RenameSchedule(builder));
-                    strip.AddButton("Modify", () => ModifySchedule(builder));
+                    strip.AddButton("Rename", () => RenameScheduleBegin(builder));
+                    strip.AddButton("Modify", () => ModifyScheduleBegin(builder));
                 }
             } else if (_NewSchedule) {
-                strip.AddButton("Save", () => ConfirmCreateNewSchedule(builder));
-                strip.AddButton("Cancel", () => CancelNewSchedule(builder));
+                strip.AddButton("Save", () => CreateNewScheduleEnd(builder, true));
+                strip.AddButton("Cancel", () => CreateNewScheduleEnd(builder, false));
             } else if (_RenameSchedule) {
-                strip.AddButton("Save", () => ConfirmRenameSchedule(builder));
-                strip.AddButton("Cancel", () => CancelRenameSchedule(builder));
+                strip.AddButton("Save", () => RenameScheduleEnd(builder, true));
+                strip.AddButton("Cancel", () => RenameScheduleEnd(builder, false));
             } else if (_EditedSchedule != null) {
-                strip.AddButton("Save", () => ConfirmModifySchedule(builder));
-                strip.AddButton("Cancel", () => CancelModifySchedule(builder));
+                strip.AddButton("Save", () => ModifyScheduleEnd(builder, true));
+                strip.AddButton("Cancel", () => ModifyScheduleEnd(builder, false));
             }
         });
 
@@ -139,7 +139,7 @@ public sealed class SchedulerDialog
 
         builder.AddField("Commands",
             builder.ButtonStrip(strip => {
-                strip.AddButton("Add", () => CreateCommand(builder));
+                strip.AddButton("Add", () => CreateCommandBegin(builder));
                 strip.AddButton("Remove", () => RemoveCommand(builder, schedule));
                 strip.AddButton("Prev", () => PrevCommand(builder));
                 strip.AddButton("Next", () => NextCommand(builder, schedule));
@@ -158,20 +158,39 @@ public sealed class SchedulerDialog
 
         var manager = ScheduleCommands.GetManager(_CurrentCommandTypeIndex);
         manager.BuildPanel(builder, _Locomotive);
-        
+
         builder.ButtonStrip(strip => {
-            strip.AddButton("Confirm", () => ConfirmCreateCommand(builder, manager, schedule));
-            strip.AddButton("Cancel", () => CancelCreateCommand(builder));
+            strip.AddButton("Confirm", () => CreateCommandEnd(builder, manager, schedule, true));
+            strip.AddButton("Cancel", () => CreateCommandEnd(builder, manager, schedule, false));
         });
     }
 
     #region Handlers
 
-    private void CreateNewSchedule(UIPanelBuilder builder) {
+    #region CreateNewSchedule
+
+    private void CreateNewScheduleBegin(UIPanelBuilder builder) {
         _NewSchedule = true;
         SetScheduleName("New schedule #" + (Schedules.Count + 1));
         builder.Rebuild();
     }
+
+    private void CreateNewScheduleEnd(UIPanelBuilder builder, bool success) {
+        if (success) {
+            if (_ScheduleNameConflict) {
+                return;
+            }
+
+            Schedules.Add(new Schedule { Name = _ScheduleName });
+            _SelectedScheduleName.Value = _ScheduleName;
+            SchedulerPlugin.SaveSettings();
+        }
+
+        _NewSchedule = false;
+        builder.Rebuild();
+    }
+
+    #endregion
 
     private void RemoveSchedule(UIPanelBuilder builder) {
         var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
@@ -183,92 +202,84 @@ public sealed class SchedulerDialog
         builder.Rebuild();
     }
 
-    private void RenameSchedule(UIPanelBuilder builder) {
+    #region RenameSchedule
+
+    private void RenameScheduleBegin(UIPanelBuilder builder) {
         _RenameSchedule = true;
         builder.Rebuild();
     }
 
-    private void ModifySchedule(UIPanelBuilder builder) {
+    private void RenameScheduleEnd(UIPanelBuilder builder, bool success) {
+        if (success) {
+            if (_ScheduleNameConflict) {
+                return;
+            }
+
+            SelectedSchedule.Name = _ScheduleName;
+            SchedulerPlugin.SaveSettings();
+        }
+
+        _RenameSchedule = false;
+        builder.Rebuild();
+    }
+
+    #endregion
+
+    #region ModifySchedule
+
+    private void ModifyScheduleBegin(UIPanelBuilder builder) {
         _EditedSchedule = SelectedSchedule.Clone();
         _CurrentCommandTypeIndex = 0;
         builder.Rebuild();
     }
 
-    private void ConfirmCreateNewSchedule(UIPanelBuilder builder) {
-        if (_ScheduleNameConflict) {
-            return;
+    private void ModifyScheduleEnd(UIPanelBuilder builder, bool success) {
+        if (success) {
+            var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
+            Schedules.RemoveAt(index);
+            Schedules.Insert(index, _EditedSchedule!);
+            SchedulerPlugin.SaveSettings();
         }
 
-        Schedules.Add(new Schedule { Name = _ScheduleName });
-        _SelectedScheduleName.Value = _ScheduleName;
-        _NewSchedule = false;
-        builder.Rebuild();
-        SchedulerPlugin.SaveSettings();
-    }
-
-    private void CancelNewSchedule(UIPanelBuilder builder) {
-        _NewSchedule = false;
-        builder.Rebuild();
-    }
-
-    private void ConfirmRenameSchedule(UIPanelBuilder builder) {
-        if (_ScheduleNameConflict) {
-            return;
-        }
-
-        SelectedSchedule.Name = _ScheduleName;
-        _RenameSchedule = false;
-        builder.Rebuild();
-        SchedulerPlugin.SaveSettings();
-    }
-
-    private void CancelRenameSchedule(UIPanelBuilder builder) {
-        _RenameSchedule = false;
-        builder.Rebuild();
-    }
-
-    private void ConfirmModifySchedule(UIPanelBuilder builder) {
-        var index = Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
-        Schedules.RemoveAt(index);
-        Schedules.Insert(index, _EditedSchedule!);
-        _EditedSchedule = null;
-        builder.Rebuild();
-        SchedulerPlugin.SaveSettings();
-    }
-
-    private void CancelModifySchedule(UIPanelBuilder builder) {
         _EditedSchedule = null;
         builder.Rebuild();
     }
+
+    #endregion
 
     private void PickCommandType(int commandIndex, UIPanelBuilder builder) {
         _CurrentCommandTypeIndex = commandIndex;
+        SchedulerPlugin.ShowTrackSwitchVisualizers = ScheduleCommands.GetManager(commandIndex).ShowTrackSwitchVisualizers;
         builder.Rebuild();
     }
 
-    private void CreateCommand(UIPanelBuilder builder) {
+    #region CreateCommand
+
+    private void CreateCommandBegin(UIPanelBuilder builder) {
         _NewCommand = true;
         builder.Rebuild();
     }
 
-    private void ConfirmCreateCommand(UIPanelBuilder builder, CommandManager manager, Schedule schedule) {
-        var command = manager.CreateCommand();
+    private void CreateCommandEnd(UIPanelBuilder builder, CommandManager manager, Schedule schedule, bool success) {
+        if (success) {
+            var command = manager.CreateCommand();
 
-        if (schedule.Commands.Count > _CurrentCommandIndex) {
-            schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
-        } else {
-            schedule.Commands.Add(command);
+            if (schedule.Commands.Count > _CurrentCommandIndex) {
+                schedule.Commands.Insert(_CurrentCommandIndex + 1, command);
+            } else {
+                schedule.Commands.Add(command);
+            }
+
+            ++_CurrentCommandIndex;
         }
 
-        ++_CurrentCommandIndex;
+        SchedulerPlugin.SelectedSwitch = null;
+        SchedulerPlugin.ShowTrackSwitchVisualizers = false;
         _NewCommand = false;
         builder.Rebuild();
     }
 
-    private void CancelCreateCommand(UIPanelBuilder builder) {
-        _NewCommand = false;
-        builder.Rebuild();
-    }
+    #endregion
 
     private void RemoveCommand(UIPanelBuilder builder, Schedule schedule) {
         schedule.Commands.RemoveAt(_CurrentCommandIndex);
@@ -298,7 +309,7 @@ public sealed class SchedulerDialog
     }
 
     private void MoveDown(UIPanelBuilder builder, Schedule schedule) {
-        if (_CurrentCommandIndex == schedule.Commands.Count-1) {
+        if (_CurrentCommandIndex == schedule.Commands.Count - 1) {
             return;
         }
 
