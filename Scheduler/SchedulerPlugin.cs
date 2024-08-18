@@ -66,13 +66,11 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     }
 
     private static void OnMapDidUnload(MapDidUnloadEvent obj) {
-        _SchedulerDialog = null;
         TrackNodeVisualizer.Shared = null!;
+        SchedulerDialog.Shared = null!;
     }
 
-    private static SchedulerDialog? _SchedulerDialog;
     private static TrackNode? _SelectedSwitch;
-    public static SchedulerDialog SchedulerDialog => _SchedulerDialog ??= new SchedulerDialog();
 
     public void ModTabDidOpen(UIPanelBuilder builder) {
         builder

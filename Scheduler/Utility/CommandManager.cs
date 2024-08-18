@@ -20,10 +20,10 @@ public abstract class CommandManager
     /// <summary> Instance of command to manage. </summary>
     public ICommand? Command { get; set; }
 
-    /// <summary> When set and this command type is selected in <see cref="SchedulerDialog"/> game will show visualizers on every switch (used to select switch). </summary>
+    /// <summary> When set and this command type is selected in <see cref="SchedulerDialogOLD"/> game will show visualizers on every switch (used to select switch). </summary>
     public virtual bool ShowTrackSwitchVisualizers => false;
 
-    /// <summary> Build panel, that is placed inside <see cref="SchedulerDialog"/> when  this command type is selected. </summary>
+    /// <summary> Build panel, that is placed inside <see cref="SchedulerDialogOLD"/> when  this command type is selected. </summary>
     /// <param name="builder">Panel builder.</param>
     /// <param name="locomotive">Current locomotive.</param>
     public virtual void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {

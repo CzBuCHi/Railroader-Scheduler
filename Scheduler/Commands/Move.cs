@@ -1,9 +1,12 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using GalaSoft.MvvmLight.Messaging;
 using Game.Messages;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
+using Scheduler.Messages;
 using Scheduler.Utility;
 using Track;
 using UI.Builder;
@@ -12,53 +15,74 @@ using UnityEngine;
 
 namespace Scheduler.Commands;
 
-public class Move(bool forward, int? maxSpeed, int switchCount, bool before, bool clearSwitchesUnderTrain) : ICommand
+public class Move(bool forward, int? maxSpeed, string? switchId, bool? stopBefore, int? carLength) : ICommand
 {
     public string DisplayText =>
         $"Move {(Forward ? "forward" : "back")} at {(MaxSpeed == null ? "yard Speed" : $"max. speed {(MaxSpeed < 45 ? MaxSpeed + " MPH" : "")}")} and " +
-        $"stop {(Before ? "before" : "after")} {GetOrdinal(SwitchCount)} switch{(ClearSwitchesUnderTrain ? " (from train end)" : "")}.";
-
-    private static string GetOrdinal(int number) {
-        return number % 100 is >= 11 and <= 13
-            ? number + "th"
-            : (number % 10) switch {
-                1 => number + "st",
-                2 => number + "nd",
-                3 => number + "rd",
-                _ => number + "th"
-            };
-    }
+        $"stop {(CarLength != null ? $"after {CarLength} car lengths." : $"{(StopBefore == true ? "before" : "after")} switch '{SwitchId}'.")}";
 
     public bool Forward { get; } = forward;
     public int? MaxSpeed { get; } = maxSpeed;
-    public int SwitchCount { get; } = switchCount;
-    public bool Before { get; } = before;
-    public bool ClearSwitchesUnderTrain { get; } = clearSwitchesUnderTrain;
+    public string? SwitchId { get; } = switchId;
+    public bool? StopBefore { get; } = stopBefore;
+    public int? CarLength { get; } = carLength;
 }
 
-public class MoveManager : CommandManager<Move>
+public enum MoveStopLocation
 {
+    BeforeSwitch,
+    AfterSwitch,
+    CarLengths
+}
+
+public class MoveManager : CommandManager<Move>, IDisposable
+{
+    public MoveManager() {
+        Messenger.Default!.Register<SelectedSwitchChanged>(this, OnSelectedSwitchChanged);
+    }
+
+    public void Dispose() {
+        Messenger.Default!.Unregister(this);
+    }
+
+    private void OnSelectedSwitchChanged(SelectedSwitchChanged _) {
+        _SwitchId = SchedulerPlugin.SelectedSwitch?.id;
+    }
+
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        Location? startLocation = null;
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
+
+        Location startLocation;
         if (state.TryGetValue("startLocation", out var savedLocation)) {
-            startLocation = (Location?)savedLocation;
-            if (startLocation == Location.Invalid) {
-                startLocation = null;
-            }
+            startLocation = (Location)savedLocation;
+        } else {
+            startLocation = SchedulerUtility.FirstCarLocation(locomotive, Car.End.F);
         }
 
         Logger.Information("Move startLocation: " + startLocation);
 
-        var locomotive = (BaseLocomotive)state["locomotive"]!;
         var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
-        var distance = SchedulerUtility.GetDistanceForSwitchOrder(Command!.SwitchCount, Command.ClearSwitchesUnderTrain, Command.Before, locomotive,  Command.Forward, startLocation, out _, out var targetSegment);
+
+        float distance = 0;
+        if (Command!.CarLength != null) {
+            distance = Command.CarLength.Value * 12.2f;
+            Graph.Shared.LocationByMoving(startLocation, distance, true);
+        }
+
+
+        // todo: distance between train & target switch
+        // string? SwitchId 
+        // bool? StopBefore 
+        // TODO //SchedulerUtility.GetDistanceForSwitchOrder(Command!.SwitchCount, Command.ClearSwitchesUnderTrain, Command.Before, locomotive,  Command.Forward, startLocation, out _, out var targetSegment);
+        TrackSegment? targetSegment = null;
+
         var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
 
         helper.SetOrdersValue(Command.MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Command.Forward, Command.MaxSpeed, distance);
 
         // wait for AI to start moving ...
         yield return new WaitWhile(() => locomotive.IsStopped());
-        
+
         var endLocation = Location.Invalid;
 
         // wait until AI stops ...
@@ -66,12 +90,12 @@ public class MoveManager : CommandManager<Move>
             if (!locomotive.IsStopped()) {
                 return false;
             }
-            
+
             // ... on correct track segment
             endLocation = SchedulerUtility.FirstCarLocation(locomotive, Command.Forward ? Car.End.R : Car.End.F);
             return endLocation.segment == targetSegment;
         });
-        
+
         if (Command.MaxSpeed != null) {
             // put train to manual mode (otherwise UI will show Road mode, speed # when train is not moving)
             helper.SetOrdersValue(AutoEngineerMode.Off);
@@ -82,26 +106,36 @@ public class MoveManager : CommandManager<Move>
     }
 
     private bool? _Forward;
-    private int _MaxSpeed;
-    private int? _SwitchCount;
-    private bool? _Before;
-    private bool? _ClearSwitchesUnderTrain;
-    private bool? _RoadMode;
+    private int? _MaxSpeed;
+    private string? _SwitchId;
+    private bool? _StopBefore;
+    private int? _CarIndex;
+    private int? _CarLength;
+
+    private bool _RoadMode;
+    private MoveStopLocation? _StopLocation;
+
+    private int _DropdownIndex;
 
     public override void SerializeProperties(JsonWriter writer) {
         writer.WritePropertyName(nameof(Move.Forward));
         writer.WriteValue(Command!.Forward);
+
         if (Command!.MaxSpeed != null) {
             writer.WritePropertyName(nameof(Move.MaxSpeed));
             writer.WriteValue(Command!.MaxSpeed.Value);
         }
 
-        writer.WritePropertyName(nameof(Move.SwitchCount));
-        writer.WriteValue(Command!.SwitchCount);
-        writer.WritePropertyName(nameof(Move.Before));
-        writer.WriteValue(Command!.Before);
-        writer.WritePropertyName(nameof(Move.ClearSwitchesUnderTrain));
-        writer.WriteValue(Command!.ClearSwitchesUnderTrain);
+        if (Command!.SwitchId != null) {
+            writer.WritePropertyName(nameof(Move.SwitchId));
+            writer.WriteValue(Command!.SwitchId);
+        }
+
+        writer.WritePropertyName(nameof(Move.StopBefore));
+        writer.WriteValue(Command!.StopBefore);
+
+        writer.WritePropertyName(nameof(Move.CarLength));
+        writer.WriteValue(Command!.CarLength);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
@@ -113,59 +147,65 @@ public class MoveManager : CommandManager<Move>
             _MaxSpeed = serializer.Deserialize<int>(reader);
         }
 
-        if (propertyName == nameof(Move.SwitchCount)) {
-            _SwitchCount = serializer.Deserialize<int>(reader);
+        if (propertyName == nameof(Move.SwitchId)) {
+            _SwitchId = serializer.Deserialize<string>(reader);
         }
 
-        if (propertyName == nameof(Move.Before)) {
-            _Before = serializer.Deserialize<bool>(reader);
+        if (propertyName == nameof(Move.StopBefore)) {
+            _StopBefore = serializer.Deserialize<bool>(reader);
         }
 
-        if (propertyName == nameof(Move.ClearSwitchesUnderTrain)) {
-            _ClearSwitchesUnderTrain = serializer.Deserialize<bool>(reader);
+        if (propertyName == nameof(Move.CarLength)) {
+            _CarLength = serializer.Deserialize<int>(reader);
         }
     }
 
     public override ICommand CreateCommand() {
         ThrowIfNull(_Forward, nameof(Move.Forward));
-        ThrowIfNull(_SwitchCount, nameof(Move.SwitchCount));
-        ThrowIfNull(_Before, nameof(Move.Before));
-        ThrowIfNull(_ClearSwitchesUnderTrain, nameof(Move.ClearSwitchesUnderTrain));
-        // MaxSpeed is optional
-        var command = new Move(_Forward!.Value, _MaxSpeed, _SwitchCount!.Value, _Before!.Value, _ClearSwitchesUnderTrain!.Value);
+
+        if (_SwitchId == null && _CarLength == null) {
+            throw new JsonSerializationException("Missing mandatory property 'SwitchId' or 'CarLength'.");
+        }
+
+        var command = new Move(_Forward!.Value, _RoadMode ? _MaxSpeed : null, _SwitchId, _StopBefore, _CarLength);
+
+        Logger.Information("CreateCommand: " + JsonConvert.SerializeObject(command));
+
         _Forward = null;
         return command;
     }
 
-    private TrackNode? _TargetSwitch;     // target switch node
-    private TrackSegment? _TargetSegment; // segment connected to target switch closer to train
+    public override bool ShowTrackSwitchVisualizers => _StopLocation != MoveStopLocation.CarLengths;
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
         if (_Forward == null) {
             _Forward = true;
             _RoadMode = true;
             _MaxSpeed = 45;
-            _ClearSwitchesUnderTrain = false;
-            _SwitchCount = 1;
+            _SwitchId = null;
+            _StopBefore = false;
+            _CarLength = null;
         }
 
         // ReSharper disable once StringLiteralTypo
         builder.AddField("Direction".Color("cccccc")!,
             builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("Forward", _Forward == true, () => SetToggle(ref _Forward, true));
-                strip.AddButtonSelectable("Backward", _Forward == false, () => SetToggle(ref _Forward, false));
+                strip.AddButtonSelectable("Forward", _Forward == true, () => SetForward(true));
+                strip.AddButtonSelectable("Backward", _Forward == false, () => SetForward(false));
             })!
         );
+
         builder.AddField("Mode",
             builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("Road", _RoadMode == true, () => SetToggle(ref _RoadMode, true));
-                strip.AddButtonSelectable("Yard", _RoadMode == false, () => SetToggle(ref _RoadMode, false));
+                strip.AddButtonSelectable("Road", _RoadMode, () => SetRoadMode(true));
+                strip.AddButtonSelectable("Yard", !_RoadMode, () => SetRoadMode(false));
             })!
         );
-        if (_RoadMode == true) {
+
+        if (_RoadMode) {
             builder.AddField("Max Speed",
-                builder.AddSliderQuantized(() => _MaxSpeed,
-                    () => _MaxSpeed.ToString("0"),
+                builder.AddSliderQuantized(() => _MaxSpeed ?? 0,
+                    () => (_MaxSpeed ?? 0).ToString("0"),
                     o => _MaxSpeed = (int)o, 5, 0, 45,
                     o => _MaxSpeed = (int)o
                 )!
@@ -174,49 +214,75 @@ public class MoveManager : CommandManager<Move>
 
         builder.AddField("Stop Location",
             builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("Before", _Before == true, () => SetToggle(ref _Before, true));
-                strip.AddButtonSelectable("After", _Before == false, () => SetToggle(ref _Before, false));
+                strip.AddButtonSelectable("Before switch", _StopLocation == MoveStopLocation.BeforeSwitch, () => SetStopLocation(MoveStopLocation.BeforeSwitch));
+                strip.AddButtonSelectable("After switch", _StopLocation == MoveStopLocation.AfterSwitch, () => SetStopLocation(MoveStopLocation.AfterSwitch));
+                strip.AddButtonSelectable("Car lengths", _StopLocation == MoveStopLocation.CarLengths, () => SetStopLocation(MoveStopLocation.CarLengths));
             })!
         );
-        builder.AddField("Switches",
-            builder.ButtonStrip(strip => {
-                    strip.AddField("Count", $"{_SwitchCount}");
-                    if (_SwitchCount > 0) {
-                        strip.AddButton("-1", () => {
-                            --_SwitchCount;
-                            strip.Rebuild();
-                            MoveCameraToSwitch();
-                        });
-                    }
 
-                    strip.AddButton("+1", () => {
-                        _SwitchCount = (_SwitchCount ?? 0) + 1;
-                        strip.Rebuild();
-                        MoveCameraToSwitch();
-                    });
-                }
-            )!
-        );
-        builder.AddField("Include under train", builder.AddToggle(() => _ClearSwitchesUnderTrain == true, o => _ClearSwitchesUnderTrain = o)!);
+        switch (_StopLocation) {
+            case MoveStopLocation.BeforeSwitch:
+            case MoveStopLocation.AfterSwitch:
+                builder.AddField("Switch", builder.AddInputField(_SwitchId ?? "", o => _SwitchId = o, "You can select Id by clicking on switch")!);
+
+                SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions, false);
+                builder.AddField("Car index",
+                    builder.AddDropdown(trainCars, _DropdownIndex, o => {
+                        _DropdownIndex = o;
+                        _CarIndex = trainCarsPositions[o];
+                        builder.Rebuild();
+                    })!
+                );
+                break;
+
+            case MoveStopLocation.CarLengths:
+                builder.AddField("Car lengths",
+                    builder.ButtonStrip(strip => {
+                        strip.AddButtonSelectable("1", _CarLength == 1, () => SetCarLength(1));
+                        strip.AddButtonSelectable("2", _CarLength == 2, () => SetCarLength(2));
+                        strip.AddButtonSelectable("5", _CarLength == 5, () => SetCarLength(5));
+                        strip.AddButtonSelectable("10", _CarLength == 10, () => SetCarLength(10));
+                        strip.AddButtonSelectable("20", _CarLength == 20, () => SetCarLength(20));
+                    })!
+                );
+                break;
+        }
 
         return;
 
-        void MoveCameraToSwitch() {
-            Location? startLocation = null;
-            // TODO: resolve start location
-
-            SchedulerUtility.GetDistanceForSwitchOrder(_SwitchCount.Value, _ClearSwitchesUnderTrain!.Value, _Before!.Value, locomotive, _Forward.Value, startLocation, out _TargetSwitch, out _TargetSegment);
-            if (_TargetSwitch != null) {
-                SchedulerUtility.MoveCameraToNode(_TargetSwitch, true);
-            }
-        }
-
-        void SetToggle(ref bool? field, bool value) {
-            if (field == value) {
+        void SetStopLocation(MoveStopLocation value) {
+            if (_StopLocation == value) {
                 return;
             }
 
-            field = value;
+            _StopLocation = value;
+            builder.Rebuild();
+        }
+
+        void SetCarLength(int value) {
+            if (_CarLength == value) {
+                return;
+            }
+
+            _CarLength = value;
+            builder.Rebuild();
+        }
+
+        void SetForward(bool value) {
+            if (_Forward == value) {
+                return;
+            }
+
+            _Forward = value;
+            builder.Rebuild();
+        }
+
+        void SetRoadMode(bool value) {
+            if (_RoadMode == value) {
+                return;
+            }
+
+            _RoadMode = value;
             builder.Rebuild();
         }
     }

@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 using KeyValue.Runtime;
 using Model;
 using Scheduler.Messages;
+using Scheduler.UI;
 using UI.Builder;
 using UI.CarInspector;
 using UI.Common;
@@ -20,7 +21,7 @@ public static class CarInspectorPatches
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "Populate")]
     public static void Populate(ref Window ____window) {
-        var windowAutoHeight = ____window.gameObject!.GetComponent<CarInspectorAutoHeightBehavior>()!;
+        var windowAutoHeight = ____window.gameObject.GetComponent<CarInspectorAutoHeightBehavior>()!;
         windowAutoHeight.ExpandTab("orders", 75);
     }
 
@@ -30,23 +31,25 @@ public static class CarInspectorPatches
         builder.RebuildOnEvent<RebuildCarInspectorAIPanel>();
 
         var schedules = SchedulerPlugin.Settings.Schedules.Select(o => o.Name).ToList();
-        if (SchedulerPlugin.Settings.Schedules.Count > 0) {
+        if (schedules.Count > 0) {
             builder.AddField("Scheduler",
                 builder.AddDropdown(schedules,
                     ____car.KeyValueObject!.Get(SchedulerKey).IntValue,
                     o => ____car.KeyValueObject.Set(SchedulerKey, Value.Int(o))
                 )!
             );
-        }
-
-        builder.AddField("",
-            builder.ButtonStrip(strip => {
-                if (SchedulerPlugin.Settings.Schedules.Count > 0) {
+            builder.AddField("",
+                builder.ButtonStrip(strip => {
                     strip.AddButton("Execute", () => SchedulerPlugin.Runner.ExecuteSchedule(SchedulerPlugin.Settings.Schedules[____car.KeyValueObject!.Get(SchedulerKey).IntValue]!, (BaseLocomotive)____car));
-                }
-
-                strip.AddButton("Manage", () => SchedulerPlugin.SchedulerDialog.ShowWindow((BaseLocomotive)____car));
-            })!
-        );
+                    strip.AddButton("Manage", () => SchedulerDialog.Shared.ShowWindow((BaseLocomotive)____car));
+                })!
+            );        
+        } else {
+            builder.AddField("Scheduler",
+                builder.ButtonStrip(strip => {
+                    strip.AddButton("Manage", () => SchedulerDialog.Shared.ShowWindow((BaseLocomotive)____car));
+                })!
+            );
+        }
     }
 }

@@ -1,5 +1,6 @@
 - move
     - start from predicted schedule location instead onf train location ?
+    - add car lengths
+    - move to track end
 
-
-
+execute command after saving it
