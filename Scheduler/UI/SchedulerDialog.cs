@@ -257,7 +257,7 @@ public sealed class SchedulerDialog
 
     private void CreateCommandBegin(UIPanelBuilder builder) {
         _NewCommand = true;
-        builder.Rebuild();
+        PickCommandType(_CurrentCommandTypeIndex, builder);
     }
 
     private void CreateCommandEnd(UIPanelBuilder builder, CommandManager manager, Schedule schedule, bool success) {

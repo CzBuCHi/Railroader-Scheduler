@@ -10,7 +10,7 @@ namespace Scheduler.Visualizers;
 /// <summary> Used by editor of <see cref="SetSwitch"/> command. </summary>
 internal sealed class TrackSwitchVisualizer : MonoBehaviour, IPickable
 {
-    private static readonly Material _LineMaterial = new(Shader.Find("Universal Render Pipeline/Lit"));
+    private static readonly Material _LineMaterial = new(Shader.Find("Universal Render Pipeline/Lit")!);
 
     private TrackNode _TrackNode = null!;
 
@@ -62,8 +62,8 @@ internal sealed class TrackSwitchVisualizer : MonoBehaviour, IPickable
 
     [UsedImplicitly]
     public void Update() {
-        _LineRenderer.enabled = SchedulerPlugin.ShowTrackSwitchVisualizers;
-        _LineRenderer!.material.color = SchedulerPlugin.SelectedSwitch == _TrackNode ? Color.magenta : Color.cyan;
+        _LineRenderer!.enabled = SchedulerPlugin.ShowTrackSwitchVisualizers;
+        _LineRenderer.material!.color = SchedulerPlugin.SelectedSwitch == _TrackNode ? Color.magenta : Color.cyan;
     }
 
     public void Activate(PickableActivateEvent evt) {

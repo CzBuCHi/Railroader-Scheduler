@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.UI;
+using Serilog;
 using UI.Builder;
 
 namespace Scheduler.Utility;
@@ -10,6 +11,12 @@ namespace Scheduler.Utility;
 /// <summary> Base class used to manage command. </summary>
 public abstract class CommandManager
 {
+    protected readonly ILogger Logger;
+
+    protected CommandManager() {
+        Logger = Log.ForContext(GetType())!;
+    }
+
     /// <summary> Instance of command to manage. </summary>
     public ICommand? Command { get; set; }
 

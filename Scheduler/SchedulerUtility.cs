@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Core;
 using Model;
-using Model.AI;
 using Scheduler.Extensions;
 using Scheduler.HarmonyPatches;
 using Scheduler.Visualizers;
@@ -14,133 +12,131 @@ namespace Scheduler;
 
 public static class SchedulerUtility
 {
-    /// <summary>
-    ///     Returns segments from <paramref name="startLocation" /> in direction of travel.
-    ///         \             /         \
-    ///     -----S-----N-----S-----N-----S-----o-----
-    ///          ^s4   ^s3   ^s2   ^s1   ^s0   ^Location
-    /// </summary>
-    public static IEnumerable<(TrackSegment Segment, TrackNode Node)> GetRoute(Location startLocation) {
-        var segment = startLocation.segment!;
-        var end = startLocation.EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
-        var node = segment.NodeForEnd(end);
-        while (true) {
-            yield return (segment, node);
-            if (!GetNextSegmentOnRoute(ref segment, ref node)) {
-                yield break;
-            }
-        }
-    }
+    ///// <summary>
+    /////     Returns segments from <paramref name="startLocation" /> in direction of travel.
+    /////         \             /         \
+    /////     -----S-----N-----S-----N-----S-----o-----
+    /////          ^s4   ^s3   ^s2   ^s1   ^s0   ^Location
+    ///// </summary>
+    //public static IEnumerable<(TrackSegment Segment, TrackNode Node)> GetRoute(Location startLocation) {
+    //    var segment = startLocation.segment!;
+    //    var end = startLocation.EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
+    //    var node = segment.NodeForEnd(end);
+    //    while (true) {
+    //        yield return (segment, node);
+    //        if (!GetNextSegmentOnRoute(ref segment, ref node)) {
+    //            yield break;
+    //        }
+    //    }
+    //}
 
-    /// <summary>
-    ///     Returns next segment on route.
-    ///                {current segment}
-    ///                ^node
-    ///     ---N-------N-------N
-    ///        {final segment}
-    ///        ^node
-    /// </summary>
-    public static bool GetNextSegmentOnRoute(ref TrackSegment segment, ref TrackNode node) {
-        var localSegment = segment;
-        if (Graph.Shared.NodeIsDeadEnd(node, out _)) {
-            SchedulerPlugin.DebugMessage($"Node {node.id} is bumper");
-            return false;
-        }
+    ///// <summary>
+    /////     Returns next segment on route.
+    /////                {current segment}
+    /////                ^node
+    /////     ---N-------N-------N
+    /////        {final segment}
+    /////        ^node
+    ///// </summary>
+    //public static bool GetNextSegmentOnRoute(ref TrackSegment segment, ref TrackNode node) {
+    //    var localSegment = segment;
+    //    if (Graph.Shared.NodeIsDeadEnd(node, out _)) {
+    //        SchedulerPlugin.DebugMessage($"Node {node.id} is bumper");
+    //        return false;
+    //    }
 
-        if (Graph.Shared.DecodeSwitchAt(node, out var enter, out var normal, out var thrown)) {
-            // if we are coming from a switch exit, the next segment is the switch entrance
-            if (localSegment != enter) {
-                SchedulerPlugin.DebugMessage($"Switch {node.id} only has one exit");
-                localSegment = enter;
-            }
-            else {
-                // otherwise depends on if the switch is thrown
-                SchedulerPlugin.DebugMessage($"Switch {node.id}: following {(node.isThrown ? "thrown" : "normal")} exit");
-                localSegment = node.isThrown ? thrown : normal;
-            }
-        }
-        else {
-            // simple node - get other segment
-            SchedulerPlugin.DebugMessage($"Node {node.id} is not a switch");
-            localSegment = Graph.Shared.SegmentsConnectedTo(node)!.First(o => o != localSegment);
-        }
+    //    if (Graph.Shared.DecodeSwitchAt(node, out var enter, out var normal, out var thrown)) {
+    //        // if we are coming from a switch exit, the next segment is the switch entrance
+    //        if (localSegment != enter) {
+    //            SchedulerPlugin.DebugMessage($"Switch {node.id} only has one exit");
+    //            localSegment = enter;
+    //        }
+    //        else {
+    //            // otherwise depends on if the switch is thrown
+    //            SchedulerPlugin.DebugMessage($"Switch {node.id}: following {(node.isThrown ? "thrown" : "normal")} exit");
+    //            localSegment = node.isThrown ? thrown : normal;
+    //        }
+    //    }
+    //    else {
+    //        // simple node - get other segment
+    //        SchedulerPlugin.DebugMessage($"Node {node.id} is not a switch");
+    //        localSegment = Graph.Shared.SegmentsConnectedTo(node)!.First(o => o != localSegment);
+    //    }
 
-        segment = localSegment;
-        node = localSegment.GetOtherNode(node)!;
-        return true;
-    }
+    //    segment = localSegment;
+    //    node = localSegment.GetOtherNode(node)!;
+    //    return true;
+    //}
 
-    /// <summary>
-    ///     Returns previous segment on route.
-    ///                {final segment}
-    ///                ^node
-    ///     ---N-------N-------N
-    ///        {current segment}
-    ///        ^node
-    /// </summary>
-    public static bool GetPreviousSegmentOrRoute(ref TrackSegment segment, ref TrackNode node) {
-        var localSegment = segment;
-        var otherNode = segment.GetOtherNode(node)!;
+    ///// <summary>
+    /////     Returns previous segment on route.
+    /////                {final segment}
+    /////                ^node
+    /////     ---N-------N-------N
+    /////        {current segment}
+    /////        ^node
+    ///// </summary>
+    //public static bool GetPreviousSegmentOrRoute(ref TrackSegment segment, ref TrackNode node) {
+    //    var localSegment = segment;
+    //    var otherNode = segment.GetOtherNode(node)!;
 
-        if (Graph.Shared.NodeIsDeadEnd(otherNode, out _)) {
-            SchedulerPlugin.DebugMessage($"Node {otherNode.id} is bumper");
-            return false;
-        }
+    //    if (Graph.Shared.NodeIsDeadEnd(otherNode, out _)) {
+    //        SchedulerPlugin.DebugMessage($"Node {otherNode.id} is bumper");
+    //        return false;
+    //    }
 
-        if (Graph.Shared.DecodeSwitchAt(otherNode, out var enter, out var normal, out var thrown)) {
-            // if we are coming from a switch exit, the next segment is the switch entrance
-            if (localSegment != enter) {
-                SchedulerPlugin.DebugMessage($"Switch {otherNode.id} only has one exit");
-                localSegment = enter;
-            }
-            else {
-                // otherwise depends on if the switch is thrown
-                SchedulerPlugin.DebugMessage($"Switch {otherNode.id}: following {(otherNode.isThrown ? "thrown" : "normal")} exit");
-                localSegment = otherNode.isThrown ? thrown : normal;
-            }
-        }
-        else {
-            // simple node - get other segment
-            SchedulerPlugin.DebugMessage($"Node {otherNode.id} is not a switch");
-            localSegment = Graph.Shared.SegmentsConnectedTo(otherNode)!.First(o => o != localSegment);
-        }
+    //    if (Graph.Shared.DecodeSwitchAt(otherNode, out var enter, out var normal, out var thrown)) {
+    //        // if we are coming from a switch exit, the next segment is the switch entrance
+    //        if (localSegment != enter) {
+    //            SchedulerPlugin.DebugMessage($"Switch {otherNode.id} only has one exit");
+    //            localSegment = enter;
+    //        }
+    //        else {
+    //            // otherwise depends on if the switch is thrown
+    //            SchedulerPlugin.DebugMessage($"Switch {otherNode.id}: following {(otherNode.isThrown ? "thrown" : "normal")} exit");
+    //            localSegment = otherNode.isThrown ? thrown : normal;
+    //        }
+    //    }
+    //    else {
+    //        // simple node - get other segment
+    //        SchedulerPlugin.DebugMessage($"Node {otherNode.id} is not a switch");
+    //        localSegment = Graph.Shared.SegmentsConnectedTo(otherNode)!.First(o => o != localSegment);
+    //    }
 
-        segment = localSegment;
-        node = localSegment.GetOtherNode(otherNode)!;
-        return true;
-    }
+    //    segment = localSegment;
+    //    node = localSegment.GetOtherNode(otherNode)!;
+    //    return true;
+    //}
 
+    ///// <summary>
+    ///// Returns switch near locomotive.
+    ///// </summary>
+    //public static bool FindSwitchNearTrain(BaseLocomotive locomotive, out TrackSegment? nearSegment, out TrackNode? switchNode) {
+    //    var segment = locomotive.LocationF.segment!;
+    //    var node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.B : TrackSegment.End.A);
+    //    while (!Graph.Shared.IsSwitch(node)) {
+    //        if (!GetNextSegmentOnRoute(ref segment, ref node)) {
+    //            node = null;
+    //        }
+    //    }
 
+    //    if (node == null) {
+    //        segment = locomotive.LocationF.segment!;
+    //        node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.A : TrackSegment.End.B);
+    //        while (!Graph.Shared.IsSwitch(node)) {
+    //            if (!GetNextSegmentOnRoute(ref segment, ref node)) {
+    //                nearSegment = null;
+    //                switchNode = null;
+    //                return false;
+    //            }
+    //        }
+    //    }
 
-    /// <summary>
-    /// Returns switch near locomotive.
-    /// </summary>
-    public static bool FindSwitchNearTrain(BaseLocomotive locomotive, out TrackSegment? nearSegment, out TrackNode? switchNode) {
-        var segment = locomotive.LocationF.segment!;
-        var node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.B : TrackSegment.End.A);
-        while (!Graph.Shared.IsSwitch(node)) {
-            if (!GetNextSegmentOnRoute(ref segment, ref node)) {
-                node = null;
-            }
-        }
+    //    nearSegment = segment;
+    //    switchNode = node;
+    //    return true;
 
-        if (node == null) {
-            segment = locomotive.LocationF.segment!;
-            node = segment.NodeForEnd(locomotive.LocationF.EndIsA ? TrackSegment.End.A : TrackSegment.End.B);
-            while (!Graph.Shared.IsSwitch(node)) {
-                if (!GetNextSegmentOnRoute(ref segment, ref node)) {
-                    nearSegment = null;
-                    switchNode = null;
-                    return false;
-                }
-            }
-        }
-
-        nearSegment = segment;
-        switchNode = node;
-        return true;
-
-    }
+    //}
 
     /// <summary>
     ///     Returns location of first car in train.
@@ -153,22 +149,22 @@ public static class SchedulerUtility
         return logical == Car.LogicalEnd.A ? firstCar.LocationA : firstCar.LocationB.Flipped();
     }
 
-    /// <summary>
-    ///     ---S-----N-----N-----N-----S---o---
-    ///        s3----      s1----
-    ///        ^node s2----^node s0------
-    ///              ^node       ^node
-    ///                                    ^ Location
-    ///              +---------------------+ Distance
-    /// </summary>
-    public static float Distance(Location startLocation, List<(TrackSegment Segment, TrackNode Node)> segments) {
-        var first = segments[0];
-        if (first.Segment != startLocation.segment) {
-            throw new InvalidOperationException("Location is not on first segment");
-        }
+    ///// <summary>
+    /////     ---S-----N-----N-----N-----S---o---
+    /////        s3----      s1----
+    /////        ^node s2----^node s0------
+    /////              ^node       ^node
+    /////                                    ^ Location
+    /////              +---------------------+ Distance
+    ///// </summary>
+    //public static float Distance(Location startLocation, List<(TrackSegment Segment, TrackNode Node)> segments) {
+    //    var first = segments[0];
+    //    if (first.Segment != startLocation.segment) {
+    //        throw new InvalidOperationException("Location is not on first segment");
+    //    }
 
-        return startLocation.DistanceTo(first.Node) + segments.Skip(1).Sum(item => item.Segment!.GetLength());
-    }
+    //    return startLocation.DistanceTo(first.Node) + segments.Skip(1).Sum(item => item.Segment!.GetLength());
+    //}
 
     /// <summary> Verify, that AI can operate switch. </summary>
     public static bool CanOperateSwitch(TrackNode node, BaseLocomotive locomotive) {
@@ -180,11 +176,11 @@ public static class SchedulerUtility
         return true;
     }
 
-    /// <summary> Returns total length of train. </summary>
-    public static float GetConsistLength(Car car) {
-        var coupledCars = car.EnumerateCoupled(Car.End.F)!.ToList();
-        return coupledCars.Sum(o => o.carLength) + 1f * (coupledCars.Count - 1); // add 1m separation per car
-    }
+    ///// <summary> Returns total length of train. </summary>
+    //public static float GetConsistLength(Car car) {
+    //    var coupledCars = car.EnumerateCoupled(Car.End.F)!.ToList();
+    //    return coupledCars.Sum(o => o.carLength) + 1f * (coupledCars.Count - 1); // add 1m separation per car
+    //}
 
     /// <summary> Resolve train cars and calculate their relative position from locomotive. </summary>
     public static void ResolveTrainCars(BaseLocomotive locomotive, out List<string> trainCars, out List<int> trainCarsPositions, bool includeLocomotive) {
@@ -198,11 +194,7 @@ public static class SchedulerUtility
         trainCarsPositions = carIndices.Select(o => o.Position).ToList();
     }
 
-
-
-
-
-    public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, out TrackNode? targetSwitch, out TrackSegment? targetSegment) {
+    public static float? GetDistanceForSwitchOrder(int switchesToFind, bool clearSwitchesUnderTrain, bool stopBeforeSwitch, BaseLocomotive locomotive, bool forward, Location? startLocation, out TrackNode? targetSwitch, out TrackSegment? targetSegment) {
         targetSwitch = null;
         targetSegment = null;
 
@@ -220,26 +212,16 @@ public static class SchedulerUtility
             SchedulerPlugin.DebugMessage("Executing order to stop after closest switch in front of train");
         }
 
-        var graph = Graph.Shared!;
+        var graph = Graph.Shared;
         
         var coupledCars = locomotive.EnumerateCoupled(forward ? Car.End.F : Car.End.R)!.ToList();
         var totalLength = coupledCars.Sum(car => car.carLength) + 1f * (coupledCars.Count - 1); // add 1m separation per car
 
         SchedulerPlugin.DebugMessage($"Found locomotive {locomotive.DisplayName} with {coupledCars.Count} cars");
 
-        TrackSegment segment;
-        TrackSegment.End segmentEnd;
-        Location start;
-
         // if we are stopping before the next switch then we can look forward from the logical front the train to find the next switch
-        start = FirstCarLocation(locomotive, forward ? Car.End.F : Car.End.R);
-        //start = StartLocation(locomotive, coupledCars, orders.Forward);
-
-        if (start == null)
-        {
-            SchedulerPlugin.DebugMessage("Error: couldn't find locomotive start location");
-        }
-
+        Location start = startLocation ?? FirstCarLocation(locomotive, forward ? Car.End.F : Car.End.R);
+        
         SchedulerPlugin.DebugMessage($"Start location: segment ID {start.segment.id}, distance {start.distance} ({start.end})");
         if (clearSwitchesUnderTrain)
         {
@@ -250,8 +232,8 @@ public static class SchedulerUtility
             SchedulerPlugin.DebugMessage($"location for end of train: segment ID {start.segment.id}, distance {start.distance} ({start.end})");
         }
 
-        segment = start.segment;
-        segmentEnd = start.EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
+        var segment = start.segment;
+        var segmentEnd = start.EndIsA ? TrackSegment.End.B : TrackSegment.End.A;
 
         float distanceInMeters = 0;
 
@@ -274,11 +256,6 @@ public static class SchedulerUtility
             }
 
             var node = segment.NodeForEnd(segmentEnd);
-            if (node == null)
-            {
-                SchedulerPlugin.DebugMessage("Next node is null");
-                break;
-            }
 
             targetSwitch = node;
             targetSegment = segment;
@@ -297,13 +274,13 @@ public static class SchedulerUtility
 
                 // update segments if looking past switch
 
-                // for switches we need to work out which way it is going
+                // for switches, we need to work out which way it is going
                 graph.DecodeSwitchAt(node, out var switchEnterSegment, out var switchExitNormal, out var switchExitReverse);
 
                 // switchEnterSegment, switchExitSegmentA, switchExitSegmentB cannot be null here, because graph.IsSwitch(node) call above ...
 
                 // if we are coming from a switch exit, the next segment is the switch entrance
-                if (switchExitNormal != null && segment.id == switchExitNormal.id || switchExitReverse != null && segment.id == switchExitReverse.id)
+                if (segment == switchExitNormal || switchExitReverse != null && segment.id == switchExitReverse.id)
                 {
                     SchedulerPlugin.DebugMessage("Switch only has one exit");
                     segment = switchEnterSegment;
@@ -329,15 +306,9 @@ public static class SchedulerUtility
                 graph.SegmentsReachableFrom(segment, segmentEnd, out var segmentExitNormal, out _);
                 segment = segmentExitNormal;
             }
-
-            if (segment == null)
-            {
-                SchedulerPlugin.DebugMessage("Next segment is null");
-                break;
-            }
-
+            
             // next segment end is whatever end is NOT pointing at the current node
-            segmentEnd = segment.NodeForEnd(TrackSegment.End.A).id == node.id ? TrackSegment.End.B : TrackSegment.End.A;
+            segmentEnd = segment!.NodeForEnd(TrackSegment.End.A).id == node.id ? TrackSegment.End.B : TrackSegment.End.A;
         }
 
         if (foundAllSwitches)
@@ -346,7 +317,7 @@ public static class SchedulerUtility
             targetSwitch = node;
             targetSegment = segment;
 
-            graph.DecodeSwitchAt(node, out var switchEnterSegment, out _, out _);
+            graph.DecodeSwitchAt(node, out var switchEnterSegment, out var switchExitNormal, out var switchExitReverse);
             var nodeFoulingDistance = graph.CalculateFoulingDistance(node);
 
             var facingSwitchEntrance = switchEnterSegment == segment;
@@ -369,10 +340,16 @@ public static class SchedulerUtility
                 {
                     SchedulerPlugin.DebugMessage($"Adding extra distance {nodeFoulingDistance}m to not block other track entering switch");
                     distanceInMeters = distanceInMeters + nodeFoulingDistance;
+
+                    // target segment is pass switch
+                    targetSegment = node.isThrown ? switchExitReverse : switchExitNormal;
                 }
                 else
                 {
                     distanceInMeters += safetyMargin;
+
+                    // target segment is pass switch
+                    targetSegment = switchEnterSegment;
                 }
 
                 // if we're not stopping before the switch, then we calculated the distance to the switch from
@@ -419,7 +396,7 @@ public static class SchedulerUtility
         }
 
         // move camera
-        cameraSelector.ZoomToPoint(node.transform!.localPosition);
+        cameraSelector.ZoomToPoint(node.transform.localPosition);
 
         if (returnBack) {
             var afterMove = cameraSelector.CurrentCameraPosition;

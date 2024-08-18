@@ -1,1 +1,3 @@
+F:Track.Location.segment
+M:Track.TrackSegment.NodeForEnd(Track.TrackSegment.End)
 P:Track.Graph.Shared

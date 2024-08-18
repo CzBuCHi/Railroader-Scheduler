@@ -66,38 +66,32 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
     private bool? _IsThrown;
 
     public override void SerializeProperties(JsonWriter writer) {
-        writer.WritePropertyName("Id");
+        writer.WritePropertyName(nameof(SetSwitch.Id));
         writer.WriteValue(Command!.Id);
-        writer.WritePropertyName("IsThrown");
+        writer.WritePropertyName(nameof(SetSwitch.IsThrown));
         writer.WriteValue(Command!.IsThrown);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
-        if (propertyName == "Id") {
+        if (propertyName == nameof(SetSwitch.Id)) {
             _Id = serializer.Deserialize<string>(reader);
         }
 
-        if (propertyName == "IsThrown") {
+        if (propertyName == nameof(SetSwitch.IsThrown)) {
             _IsThrown = serializer.Deserialize<bool>(reader);
         }
     }
 
     public override ICommand CreateCommand() {
-        ThrowIfNull(_Id, "Id");
-        ThrowIfNull(_IsThrown, "IsThrown");
+        ThrowIfNull(_Id, nameof(SetSwitch.Id));
+        ThrowIfNull(_IsThrown, nameof(SetSwitch.IsThrown));
         return new SetSwitch(_Id!, _IsThrown!.Value);
     }
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
         builder.RebuildOnEvent<SelectedSwitchChanged>();
-
-        builder.AddField("Orientation",
-            builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("Normal", _IsThrown == false, () => SetToggle(ref _IsThrown, false));
-                strip.AddButtonSelectable("Reversed", _IsThrown == true, () => SetToggle(ref _IsThrown, true));
-            })!
-        );
         builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => _Id = o, "You can select Id by clicking on switch")!);
+        builder.AddField("Reversed", builder.AddToggle(() => _IsThrown == true, o => SetToggle(ref _IsThrown, o))!);
         return;
 
         void SetToggle(ref bool? field, bool value) {

@@ -77,18 +77,18 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
     private int? _CarIndex;
 
     public override void SerializeProperties(JsonWriter writer) {
-        writer.WritePropertyName("CarIndex");
+        writer.WritePropertyName(nameof(Uncouple.CarIndex));
         writer.WriteValue(Command!.CarIndex);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
-        if (propertyName == "CarIndex") {
+        if (propertyName == nameof(Uncouple.CarIndex)) {
             _CarIndex = serializer.Deserialize<int>(reader);
         }
     }
 
     public override ICommand CreateCommand() {
-        ThrowIfNull(_CarIndex, "CarIndex");
+        ThrowIfNull(_CarIndex, nameof(Uncouple.CarIndex));
         return new Uncouple(_CarIndex!.Value);
     }
 

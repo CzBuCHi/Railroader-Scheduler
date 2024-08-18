@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<assembly name="Assembly-CSharp">
+  <member name="M:Track.Graph.DecodeSwitchAt(Track.TrackNode,Track.TrackSegment@,Track.TrackSegment@,Track.TrackSegment@)">
+    <attribute ctor="M:JetBrains.Annotations.ContractAnnotationAttribute.#ctor(System.String)" arguments="=> false,enter:null,a:null,b:null;=> true,enter:NotNull,a:NotNull,b:NotNull" />
+  </member>
+</assembly>

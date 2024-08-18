@@ -26,22 +26,22 @@ public sealed class WaitManager : CommandManager<Wait>
     private float? _MilliSeconds;
 
     public override void SerializeProperties(JsonWriter writer) {
-        writer.WritePropertyName("MilliSeconds");
+        writer.WritePropertyName(nameof(Wait.MilliSeconds));
         writer.WriteValue(Command!.MilliSeconds);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
-        if (propertyName == "MilliSeconds") {
+        if (propertyName == nameof(Wait.MilliSeconds)) {
             _MilliSeconds = serializer.Deserialize<float>(reader);
         }
     }
 
     public override ICommand CreateCommand() {
-        ThrowIfNull(_MilliSeconds, "MilliSeconds");
+        ThrowIfNull(_MilliSeconds, nameof(Wait.MilliSeconds));
         return new Wait(_MilliSeconds!.Value);
     }
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
-        builder.AddField("MilliSeconds", builder.AddSlider(() => _MilliSeconds ?? 0, () => (_MilliSeconds ?? 0).ToString("0"), o => _MilliSeconds = o, 0, 60 * 60 * 1000, true, o => _MilliSeconds = o)!);
+        builder.AddField("Milliseconds", builder.AddSlider(() => _MilliSeconds ?? 0, () => (_MilliSeconds ?? 0).ToString("0"), o => _MilliSeconds = o, 0, 60 * 60 * 1000, true, o => _MilliSeconds = o)!);
     }
 }

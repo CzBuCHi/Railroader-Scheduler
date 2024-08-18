@@ -42,18 +42,18 @@ public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
     private int? _CarIndex;
 
     public override void SerializeProperties(JsonWriter writer) {
-        writer.WritePropertyName("CarIndex");
+        writer.WritePropertyName(nameof(SetHandbrake.CarIndex));
         writer.WriteValue(Command!.CarIndex);
     }
 
     protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
-        if (propertyName == "CarIndex") {
+        if (propertyName == nameof(SetHandbrake.CarIndex)) {
             _CarIndex = serializer.Deserialize<int>(reader);
         }
     }
 
     public override ICommand CreateCommand() {
-        ThrowIfNull(_CarIndex, "CarIndex");
+        ThrowIfNull(_CarIndex, nameof(SetHandbrake.CarIndex));
         return new SetHandbrake(_CarIndex!.Value);
     }
 
