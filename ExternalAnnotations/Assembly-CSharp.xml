@@ -9,6 +9,12 @@
   <member name="M:Track.TrackSegment.NodeForEnd(Track.TrackSegment.End)">
     <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
   </member>
+  <member name="M:UI.Builder.UIPanelBuilder.AddButton(System.String,System.Action)">
+    <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
+  </member>
+  <member name="P:Track.Graph.Nodes">
+    <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
+  </member>
   <member name="P:Track.Graph.Shared">
     <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
   </member>

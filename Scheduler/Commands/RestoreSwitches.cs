@@ -33,7 +33,7 @@ public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
         switches.Clear();
     }
 
-    public override ICommand CreateCommand() {
+    protected override object TryCreateCommand() {
         return new RestoreSwitches();
     }
 }

@@ -63,7 +63,7 @@ public sealed class SchedulerDialog
         _State = state;
         _Logger.Information("SetState: " + state.GetType().Name + JsonConvert.SerializeObject(state));
 
-        SchedulerPlugin.ShowTrackSwitchVisualizers = _State is ModifySchedule modifySchedule && ScheduleCommands.GetManager(modifySchedule.CommandTypeIndex).ShowTrackSwitchVisualizers;
+        SchedulerPlugin.ShowTrackSwitchVisualizers = _State is ModifySchedule { EditMode:  not EditMode.None } modifySchedule && ScheduleCommands.GetManager(modifySchedule.CommandTypeIndex).ShowTrackSwitchVisualizers;
         Messenger.Default!.Send(new RebuildSchedulePanel());
     }
 
@@ -76,15 +76,13 @@ public sealed class SchedulerDialog
 
         builder.ButtonStrip(strip => {
             if (_State is Initial initial) {
-                strip.AddButton("Create new", () => SetState(new NewSchedule {
-                    Name = $"New schedule #{Schedules.Count + 1}"
-                }));
+                var hasNoScheduleSelected = initial.Schedule == null;
 
-                if (initial.Name.Value != null) {
-                    strip.AddButton("Remove", () => SetState(new RemoveSchedule { Name = initial.Name.Value }));
-                    strip.AddButton("Rename", () => SetState(new RenameSchedule { Name = initial.Name.Value }));
-                    strip.AddButton("Modify", ModifyScheduleBegin);
-                }
+                strip.AddButton("Create new", () => SetState(new NewSchedule($"New schedule #{Schedules.Count + 1}", false)));
+                strip.AddButton("Remove", () => SetState(new RemoveSchedule(initial.Name.Value!))).Disable(hasNoScheduleSelected);
+                strip.AddButton("Rename", () => SetState(new RenameSchedule(initial.Name.Value!, initial.Name.Value!, false))).Disable(hasNoScheduleSelected);
+                strip.AddButton("Modify", ModifyScheduleBegin).Disable(hasNoScheduleSelected);
+                strip.AddButton("Execute", () => ExecuteSchedule(initial.Schedule!, 0)).Disable(hasNoScheduleSelected);
             }
 
             switch (_State) {
@@ -94,7 +92,7 @@ public sealed class SchedulerDialog
                     break;
 
                 case RemoveSchedule:
-                    strip.AddButton("Save", RemoveScheduleEnd);
+                    strip.AddButton("Confirm", RemoveScheduleEnd);
                     strip.AddButton("Cancel", () => SetState(new Initial()));
                     break;
 
@@ -103,9 +101,10 @@ public sealed class SchedulerDialog
                     strip.AddButton("Cancel", () => SetState(new Initial()));
                     break;
 
-                case ModifySchedule:
+                case ModifySchedule modifySchedule:
                     strip.AddButton("Save", ModifyScheduleEnd);
                     strip.AddButton("Cancel", () => SetState(new Initial()));
+                    strip.AddButton("Execute from current", () => ExecuteSchedule(modifySchedule.Schedule, modifySchedule.CommandIndex));
                     break;
             }
         });
@@ -116,10 +115,7 @@ public sealed class SchedulerDialog
                 labelText = labelText.ColorRed()!;
             }
 
-            builder.AddField(labelText, builder.AddInputField(newSchedule.Name, newName => {
-                newSchedule.Name = newName;
-                newSchedule.Conflict = Schedules.FindIndex(o => o.Name == newName) != -1;
-            }, characterLimit: 50)!);
+            builder.AddField(labelText, builder.AddInputField(newSchedule.Name, newName => { SetState(new NewSchedule(newName, Schedules.FindIndex(o => o.Name == newName) != -1)); }, characterLimit: 50)!);
         }
 
         if (_State is RenameSchedule renameSchedule) {
@@ -128,16 +124,13 @@ public sealed class SchedulerDialog
                 labelText = labelText.ColorRed()!;
             }
 
-            builder.AddField(labelText, builder.AddInputField(renameSchedule.Name, newName => {
-                renameSchedule.Name = newName;
-                renameSchedule.Conflict = Schedules.FindIndex(o => o.Name == newName) != -1;
-            }, characterLimit: 50)!);
+            builder.AddField(labelText, builder.AddInputField(renameSchedule.Name, newName => { SetState(renameSchedule with { Name = newName, Conflict = Schedules.FindIndex(o => o.Name == newName) != -1 }); }, characterLimit: 50)!);
         }
 
         switch (_State) {
             case ModifySchedule modifySchedule:
                 _Window.Title = $"AI Scheduler | {modifySchedule.Schedule.Name}";
-                builder.AddSection(modifySchedule.Schedule.Name, BuildEditor);
+                BuildEditor(builder);
                 break;
 
             case Initial initial: {
@@ -171,16 +164,30 @@ public sealed class SchedulerDialog
 
         builder.AddField("Commands",
             builder.ButtonStrip(strip => {
+                var hasCommands = modifySchedule.Schedule.Commands.Count > 0;
+                var isFirst = (hasCommands && modifySchedule.CommandIndex == 0);
+                var isLast = (hasCommands && modifySchedule.CommandIndex == modifySchedule.Schedule.Commands.Count - 1);
+
+                SchedulerPlugin.DebugMessage(
+                    $"count: {modifySchedule.Schedule.Commands.Count}, " +
+                    $"commandIndex: {modifySchedule.CommandIndex}, " +
+                    $"notFirst: {isFirst}, " +
+                    $"notLast: {isLast}"
+                );
+
                 strip.AddButton("Add", AddCommandBegin);
-                strip.AddButton("Remove", RemoveCommand);
-                strip.AddButton("Prev", PrevCommand);
-                strip.AddButton("Next", NextCommand);
-                strip.AddButton("Move up", MoveUpCommand);
-                strip.AddButton("Move down", MoveDownCommand);
+                strip.AddButton("Remove", RemoveCommand).Disable(modifySchedule.Schedule.Commands.Count == 0);
+                strip.AddButton("Modify", ModifyCommandBegin).Disable(modifySchedule.Schedule.Commands.Count == 0);
+                strip.AddButton("<<", FirstCommand).Disable(isFirst);
+                strip.AddButton("<", PrevCommand).Disable(isFirst);
+                strip.AddButton(">", NextCommand).Disable(isLast);
+                strip.AddButton(">>", LastCommand).Disable(isLast);
+                strip.AddButton("Move up", MoveUpCommand).Disable(isFirst);
+                strip.AddButton("Move down", MoveDownCommand).Disable(isLast);
             })!
         );
 
-        if (!modifySchedule.NewCommand) {
+        if (modifySchedule.EditMode == EditMode.None) {
             BuildCommandList(builder, modifySchedule.Schedule);
             return;
         }
@@ -193,8 +200,8 @@ public sealed class SchedulerDialog
         manager.BuildPanel(builder, _Locomotive);
 
         builder.ButtonStrip(strip => {
-            strip.AddButton("Confirm", AddCommandEnd);
-            strip.AddButton("Cancel", () => SetState(new Initial()));
+            strip.AddButton("Confirm", modifySchedule.EditMode == EditMode.New ? AddCommandEnd : ModifyCommandEnd);
+            strip.AddButton("Cancel", () => SetState(modifySchedule with { EditMode = EditMode.None }));
         });
     }
 
@@ -245,7 +252,7 @@ public sealed class SchedulerDialog
     private void ModifyScheduleBegin() {
         var initial = (Initial)_State;
         var schedule = Schedules.First(o => o.Name == initial.Name.Value);
-        SetState(new ModifySchedule { Schedule = schedule });
+        SetState(new ModifySchedule(schedule, 0, 0, EditMode.None));
     }
 
     private void ModifyScheduleEnd() {
@@ -257,8 +264,12 @@ public sealed class SchedulerDialog
         SetState(new Initial { Name = { Value = modifySchedule.Schedule.Name } });
     }
 
+    private void ExecuteSchedule(Schedule schedule, int firstCommand) {
+        SchedulerPlugin.Runner.ExecuteSchedule(schedule, _Locomotive, firstCommand);
+    }
+
     private void AddCommandBegin() {
-        SetState((ModifySchedule)_State with { NewCommand = true });
+        SetState((ModifySchedule)_State with { EditMode = EditMode.New });
     }
 
     private void AddCommandEnd() {
@@ -275,13 +286,33 @@ public sealed class SchedulerDialog
 
         SchedulerPlugin.SelectedSwitch = null;
         SchedulerPlugin.ShowTrackSwitchVisualizers = false;
-        SetState(modifySchedule with { CommandIndex = modifySchedule.CommandIndex + 1, NewCommand = false });
+        SetState(modifySchedule with { CommandIndex = modifySchedule.CommandIndex + 1, EditMode = EditMode.None });
     }
 
     private void RemoveCommand() {
         var modifySchedule = (ModifySchedule)_State;
         modifySchedule.Schedule.Commands.RemoveAt(modifySchedule.CommandIndex);
         SetState(modifySchedule with { CommandIndex = Math.Max(0, modifySchedule.CommandIndex - 1) });
+    }
+
+    private void ModifyCommandBegin() {
+        SetState((ModifySchedule)_State with { EditMode = EditMode.Edit });
+    }
+
+    private void ModifyCommandEnd() {
+        var modifySchedule = (ModifySchedule)_State;
+        var manager = ScheduleCommands.GetManager(modifySchedule.CommandTypeIndex);
+        var command = manager.CreateCommand();
+        modifySchedule.Schedule.Commands[modifySchedule.CommandIndex] = command;
+        SchedulerPlugin.SelectedSwitch = null;
+        SchedulerPlugin.ShowTrackSwitchVisualizers = false;
+        SetState(modifySchedule with { CommandIndex = modifySchedule.CommandIndex + 1, EditMode = EditMode.None });
+    }
+    
+
+    private void FirstCommand() {
+        var modifySchedule = (ModifySchedule)_State;
+        SetState(modifySchedule with { CommandIndex = 0 });
     }
 
     private void PrevCommand() {
@@ -292,6 +323,11 @@ public sealed class SchedulerDialog
     private void NextCommand() {
         var modifySchedule = (ModifySchedule)_State;
         SetState(modifySchedule with { CommandIndex = Math.Min(modifySchedule.Schedule.Commands.Count - 1, modifySchedule.CommandIndex + 1) });
+    }
+
+    private void LastCommand() {
+        var modifySchedule = (ModifySchedule)_State;
+        SetState(modifySchedule with { CommandIndex = modifySchedule.Schedule.Commands.Count - 1 });
     }
 
     private void MoveUpCommand() {
@@ -315,34 +351,17 @@ public sealed class SchedulerDialog
 
 public interface IState;
 
-public sealed record Initial : IState
+public sealed record Initial(Schedule? Schedule = null) : IState
 {
     public readonly UIState<string?> Name = new(null);
-    public Schedule? Schedule { get; set; }
 }
 
-public sealed record NewSchedule : IState
-{
-    public string Name { get; set; }
-    public bool Conflict { get; set; }
-}
+public sealed record NewSchedule(string Name, bool Conflict) : IState;
 
-public sealed record RemoveSchedule : IState
-{
-    public string Name { get; set; }
-}
+public sealed record RemoveSchedule(string Name) : IState;
 
-public sealed record RenameSchedule : IState
-{
-    public string OldName { get; set; }
-    public string Name { get; set; }
-    public bool Conflict { get; set; }
-}
+public sealed record RenameSchedule(string OldName, string Name, bool Conflict) : IState;
 
-public sealed record ModifySchedule : IState
-{
-    public Schedule Schedule { get; set; }
-    public int CommandTypeIndex { get; set; }
-    public int CommandIndex { get; set; }
-    public bool NewCommand { get; set; }
-}
+public sealed record ModifySchedule(Schedule Schedule, int CommandTypeIndex, int CommandIndex, EditMode EditMode) : IState;
+
+public enum EditMode { None, New, Edit }

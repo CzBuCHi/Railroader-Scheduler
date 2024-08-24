@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Extensions;
@@ -52,8 +53,11 @@ public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
         }
     }
 
-    public override ICommand CreateCommand() {
-        ThrowIfNull(_CarIndex, nameof(SetHandbrake.CarIndex));
+    protected override object TryCreateCommand() {
+        if (_CarIndex == null) {
+            return $"Missing mandatory property 'CarIndex'.";
+        }
+
         return new SetHandbrake(_CarIndex!.Value);
     }
 

@@ -68,6 +68,7 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
     public override void SerializeProperties(JsonWriter writer) {
         writer.WritePropertyName(nameof(SetSwitch.Id));
         writer.WriteValue(Command!.Id);
+
         writer.WritePropertyName(nameof(SetSwitch.IsThrown));
         writer.WriteValue(Command!.IsThrown);
     }
@@ -82,9 +83,20 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
         }
     }
 
-    public override ICommand CreateCommand() {
-        ThrowIfNull(_Id, nameof(SetSwitch.Id));
-        ThrowIfNull(_IsThrown, nameof(SetSwitch.IsThrown));
+    protected override object TryCreateCommand() {
+        List<string> missing = new();
+        if (_Id == null) {
+            missing.Add("Id");
+        }
+
+        if (_IsThrown == null) {
+            missing.Add("IsThrown");
+        }
+
+        if (missing.Count > 0) {
+            return $"Missing mandatory property '{string.Join(", ", missing)}'.";
+        }
+
         return new SetSwitch(_Id!, _IsThrown!.Value);
     }
 

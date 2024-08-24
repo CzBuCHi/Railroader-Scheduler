@@ -1,4 +1,5 @@
 M:UnityEngine.GameObject.AddComponent``1
 P:UnityEngine.Component.gameObject
 P:UnityEngine.Component.transform
+P:UnityEngine.GameObject.transform
 P:UnityEngine.Transform.parent

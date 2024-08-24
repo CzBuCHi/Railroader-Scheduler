@@ -1,5 +1,5 @@
-using System;
 using System.Collections;
+using Scheduler.Commands;
 using Track;
 using UnityEngine;
 
@@ -47,8 +47,5 @@ internal sealed class TrackNodeVisualizer : MonoBehaviour
     private IEnumerator Routine() {
         yield return new WaitForSecondsRealtime(2f);
         _LineRenderer!.enabled = false;
-        OnHidden?.Invoke();
     }
-
-    public Action? OnHidden;
 }

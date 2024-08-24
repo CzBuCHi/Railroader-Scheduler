@@ -36,8 +36,11 @@ public sealed class WaitManager : CommandManager<Wait>
         }
     }
 
-    public override ICommand CreateCommand() {
-        ThrowIfNull(_MilliSeconds, nameof(Wait.MilliSeconds));
+    protected override object TryCreateCommand() {
+        if (_MilliSeconds == null) {
+            return "Missing mandatory property 'MilliSeconds'.";
+        }
+
         return new Wait(_MilliSeconds!.Value);
     }
 

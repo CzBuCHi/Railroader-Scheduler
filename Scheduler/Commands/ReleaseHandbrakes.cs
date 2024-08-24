@@ -20,7 +20,7 @@ public sealed class ReleaseHandbrakesManager : CommandManager<ReleaseHandbrakes>
         yield break;
     }
 
-    public override ICommand CreateCommand() {
+    protected override object TryCreateCommand() {
         return new ReleaseHandbrakes();
     }
 }

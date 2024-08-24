@@ -34,10 +34,7 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
 
         Car carToDisconnect;
         Car newEndCar;
-        int index;
         if (carIndex > 0) {
-            index = carIndex - 1;
-
             if (!cars.TryGetValue(carIndex - 1, out carToDisconnect)) {
                 // TODO: Error message?
                 yield break;
@@ -48,7 +45,6 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
                 yield break;
             }
         } else {
-            index = carIndex;
             if (!cars.TryGetValue(carIndex, out carToDisconnect)) {
                 // TODO: Error message?
                 yield break;
@@ -59,9 +55,7 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
                 yield break;
             }
         }
-
-        SchedulerPlugin.DebugMessage($"Uncoupling {carToDisconnect!.DisplayName} ({carToDisconnect.Archetype} | {index}).");
-
+        
         var newEndCarEndToDisconnect = newEndCar!.CoupledTo(Car.LogicalEnd.A) == carToDisconnect ? Car.LogicalEnd.A : Car.LogicalEnd.B;
         var carToDisconnectEndToDisconnect = carToDisconnect!.CoupledTo(Car.LogicalEnd.A) == newEndCar ? Car.LogicalEnd.A : Car.LogicalEnd.B;
 
@@ -87,8 +81,11 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
         }
     }
 
-    public override ICommand CreateCommand() {
-        ThrowIfNull(_CarIndex, nameof(Uncouple.CarIndex));
+    protected override object TryCreateCommand() {
+        if (_CarIndex == null) {
+            return "Missing mandatory property 'CarIndex'.";
+        }
+
         return new Uncouple(_CarIndex!.Value);
     }
 

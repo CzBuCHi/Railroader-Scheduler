@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="72.130585"
+   height="56.881813"
+   viewBox="0 0 70.884802 50.566269"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="drawing.svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   inkscape:export-filename="C:\projects\Railroader-Scheduler\drawing.png"
+   inkscape:export-xdpi="552.45441"
+   inkscape:export-ydpi="552.45441"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview77"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="1"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="9.9749197"
+     inkscape:cx="28.772161"
+     inkscape:cy="28.822287"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     lock-margins="true"
+     fit-margin-top="10"
+     fit-margin-left="10"
+     fit-margin-right="10"
+     fit-margin-bottom="10"
+     viewbox-width="70"
+     viewbox-height="50" />
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible"
+       id="MarkerEnd"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(0.4,0,0,0.4,2.96,0.4)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="m -2.5,-1 c 0,2.76 -2.24,5 -5,5 -2.76,0 -5,-2.24 -5,-5 0,-2.76 2.24,-5 5,-5 2.76,0 5,2.24 5,5 z"
+         id="path1123" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="MarkerStart"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(0.4,0,0,0.4,2.96,0.4)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="m -2.5,-1 c 0,2.76 -2.24,5 -5,5 -2.76,0 -5,-2.24 -5,-5 0,-2.76 2.24,-5 5,-5 2.76,0 5,2.24 5,5 z"
+         id="path919" />
+    </marker>
+    <style
+       id="style7">
+    path {
+        fill:none;stroke:#000000;stroke-width:0.272191;stroke-miterlimit:1;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#MarkerStart);marker-start:url(#MarkerEnd)
+    }
+    </style>
+    <marker
+       style="overflow:visible"
+       id="MarkerEnd-8"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(0.4,0,0,0.4,2.96,0.4)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="m -2.5,-1 c 0,2.76 -2.24,5 -5,5 -2.76,0 -5,-2.24 -5,-5 0,-2.76 2.24,-5 5,-5 2.76,0 5,2.24 5,5 z"
+         id="path1123-1" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="MarkerStart-6"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(0.4,0,0,0.4,2.96,0.4)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="m -2.5,-1 c 0,2.76 -2.24,5 -5,5 -2.76,0 -5,-2.24 -5,-5 0,-2.76 2.24,-5 5,-5 2.76,0 5,2.24 5,5 z"
+         id="path919-8" />
+    </marker>
+  </defs>
+  <g
+     id="layer1"
+     transform="translate(-4.5485615,2.81844)">
+    <path
+       d="m 30,20 h 5"
+       id="path8"
+       style="stroke:#ff0000;stroke-opacity:1" />
+    <path
+       d="m 20,15 h 5"
+       id="path10" />
+    <path
+       d="m 20,25 h 5"
+       id="path12" />
+    <path
+       d="m 40,40 h 5"
+       id="path14" />
+    <path
+       d="m 45,40 h 5"
+       id="path16" />
+    <path
+       d="m 35,40 h 5"
+       id="path18" />
+    <path
+       d="m 30,40 h 5"
+       id="path20" />
+    <path
+       d="m 25,10 v 5"
+       id="path22" />
+    <path
+       d="m 40,30 v 5"
+       id="path24" />
+    <path
+       d="m 45,5 v 5"
+       id="path26" />
+    <path
+       d="m 25,25 v 5"
+       id="path28"
+       style="stroke:#ff0000;stroke-opacity:1" />
+    <path
+       d="m 40,15 h 5"
+       id="path30" />
+    <path
+       d="m 55,15 h 5"
+       id="path32" />
+    <path
+       d="m 60,15 h 5"
+       id="path34" />
+    <path
+       d="m 45,10 h 5"
+       id="path36" />
+    <path
+       d="m 40,25 h 5"
+       id="path38" />
+    <path
+       d="m 45,25 h 5"
+       id="path40" />
+    <path
+       d="m 25,15 5,5"
+       id="path42" />
+    <path
+       d="m 15,20 5,5"
+       id="path44" />
+    <path
+       d="m 40,35 5,5"
+       id="path46" />
+    <path
+       d="m 30,35 5,5"
+       id="path50" />
+    <path
+       d="m 25,30 5,5"
+       id="path48"
+       style="stroke:#ff0000;stroke-width:0.272256;stroke-miterlimit:1;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="m 35,20 5,5"
+       id="path52" />
+    <path
+       d="m 50,10 5,5"
+       id="path56" />
+    <path
+       d="m 25,25 5,-5"
+       id="path58"
+       style="stroke:#f20000;stroke-opacity:1" />
+    <path
+       d="m 15,30 5,-5"
+       id="path60" />
+    <path
+       d="m 40,15 -2.5,2.5"
+       id="path62-0"
+       style="fill:none;stroke:#010000;stroke-width:0.272191;stroke-miterlimit:1;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#MarkerEnd-8);marker-end:url(#MarkerStart-6)" />
+    <path
+       d="m 35,20 2.5,-2.5"
+       id="path62"
+       style="stroke:#ff0000;stroke-opacity:1" />
+    <path
+       d="M 50,10 55,5"
+       id="path64" />
+    <path
+       d="m 40,30 5,-5"
+       id="path66" />
+    <path
+       d="m 50,25 5,-5"
+       id="path68" />
+    <path
+       d="m 55,20 5,-5"
+       id="path70" />
+    <path
+       d="m 40,15 5,-5"
+       id="path72" />
+  </g>
+</svg>

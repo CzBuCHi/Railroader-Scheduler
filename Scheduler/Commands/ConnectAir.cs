@@ -35,7 +35,7 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
         }
     }
 
-    public override ICommand CreateCommand() {
+    protected override object TryCreateCommand() {
         return new ConnectAir();
     }
 }
