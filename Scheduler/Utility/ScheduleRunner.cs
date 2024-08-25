@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using Game.State;
 using Model;
 using Scheduler.Commands;
 using Scheduler.Data;
@@ -23,7 +24,8 @@ internal sealed class ScheduleRunner : MonoBehaviour
         // can be used to pass values between commands
         var state = new Dictionary<string, object> {
             ["schedule"] = schedule,
-            ["locomotive"] = locomotive
+            ["locomotive"] = locomotive,
+            ["wage"] = 0
         };
 
         for (var i = firstCommand; i < schedule.Commands.Count; i++) {
@@ -40,13 +42,17 @@ internal sealed class ScheduleRunner : MonoBehaviour
                 yield return wait.Current;
             }
         }
+
+        var wage = (int)state["wage"];
+
+        StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, new EntityReference(EntityType.Car, locomotive.id!), "Scheduler: " + schedule.Name);
     }
 
     private static IEnumerator ExecuteCommand(ICommand command, Dictionary<string, object> state) {
         _Logger.Information("Executing command: " + command.DisplayText);
 
         var locomotive = (BaseLocomotive)state["locomotive"]!;
-        SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] Executing {command.DisplayText}");
+        SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] {command.DisplayText}");
 
         var manager = ScheduleCommands.GetManager(command.GetType());
         manager.Command = command;

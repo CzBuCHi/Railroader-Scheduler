@@ -3,3 +3,4 @@ M:Track.TrackSegment.NodeForEnd(Track.TrackSegment.End)
 M:UI.Builder.UIPanelBuilder.AddButton(System.String,System.Action)
 P:Track.Graph.Nodes
 P:Track.Graph.Shared
+P:Game.State.StateManager.Shared

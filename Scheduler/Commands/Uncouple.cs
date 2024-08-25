@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Model;
@@ -13,14 +14,15 @@ namespace Scheduler.Commands;
 /// <param name="carIndex">Car index counted from locomotive.</param>
 public sealed class Uncouple(int carIndex) : ICommand
 {
-    public string DisplayText => $"Uncouple car #{CarIndex}";
+    public string DisplayText => $"Uncouple {CarIndex.GetRelativePosition()}";
+    public int Wage { get; } = 5;
 
     public int CarIndex { get; } = carIndex;
 }
 
 public sealed class UncoupleManager : CommandManager<Uncouple>
 {
-    public override IEnumerator Execute(Dictionary<string, object> state) {
+    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         if (Command!.CarIndex == 0) {
             locomotive.SetHandbrake(true);
@@ -36,22 +38,18 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
         Car newEndCar;
         if (carIndex > 0) {
             if (!cars.TryGetValue(carIndex - 1, out carToDisconnect)) {
-                // TODO: Error message?
                 yield break;
             }
 
             if (!cars.TryGetValue(carIndex, out newEndCar)) {
-                // TODO: Error message?
                 yield break;
             }
         } else {
             if (!cars.TryGetValue(carIndex, out carToDisconnect)) {
-                // TODO: Error message?
                 yield break;
             }
 
             if (!cars.TryGetValue(carIndex + 1, out newEndCar)) {
-                // TODO: Error message?
                 yield break;
             }
         }

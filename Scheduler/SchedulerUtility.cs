@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Model;
@@ -22,15 +23,17 @@ public static class SchedulerUtility
         return true;
     }
 
-    public static void ResolveTrainCars(BaseLocomotive locomotive, out List<string> trainCars, out List<int> trainCarsPositions, bool includeLocomotive) {
+    public static int ResolveTrainCars(BaseLocomotive locomotive, out List<string> trainCars, out List<int> trainCarsPositions, bool includeLocomotive) {
         var consist = locomotive.EnumerateConsist();
         if (!includeLocomotive) {
             consist = consist.Where(o => o.Position != 0);
         }
 
         var carIndices = consist.ToArray();
+        var locomotiveIndex = Array.FindIndex(carIndices, tuple => tuple.Car == locomotive);
         trainCars = carIndices.Select(o => o.Position == 0 ? $"Locomotive ({o.Car!.DisplayName})" : $"Car #{o.Position} ({o.Car!.DisplayName})").ToList();
         trainCarsPositions = carIndices.Select(o => o.Position).ToList();
+        return locomotiveIndex;
     }
 
     private static readonly Serilog.ILogger _Logger = Log.ForContext(typeof(SchedulerUtility))!;

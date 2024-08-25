@@ -31,25 +31,24 @@ public abstract class CommandManager
     public virtual void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
     }
 
-    /// <summary>
-    /// Execute current command.
-    /// </summary>
+    /// <summary> Execute current command. </summary>
     /// <param name="state">State used to pass values between commands.</param>
     /// <returns>Enumerator, that is processed by unity Coroutine.</returns>
-    public abstract IEnumerator Execute(Dictionary<string, object> state);
+    public IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + Command!.Wage;
+        return ExecuteCore(state);
+    }
 
-    /// <summary>
-    /// Read single property value from json <paramref name="reader"/>.
-    /// </summary>
+    protected abstract IEnumerator ExecuteCore(Dictionary<string, object> state);
+
+    /// <summary> Read single property value from json <paramref name="reader"/>. </summary>
     /// <param name="propertyName">Name of property to read.</param>
     /// <param name="reader">Json reader.</param>
     /// <param name="serializer">Json serializer.</param>
     protected virtual void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
     }
 
-    /// <summary>
-    /// Serialize properties of current command to <paramref name="writer"/>.
-    /// </summary>
+    /// <summary> Serialize properties of current command to <paramref name="writer"/>. </summary>
     /// <param name="writer">Json writer.</param>
     public virtual void SerializeProperties(JsonWriter writer) {
     }

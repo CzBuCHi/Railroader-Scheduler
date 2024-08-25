@@ -8,12 +8,13 @@ namespace Scheduler.Commands;
 /// <summary> Restore state of switches, that where thrown by this schedule (See <see cref="SetSwitch"/> command). </summary>
 public sealed class RestoreSwitches : ICommand
 {
-    public string DisplayText => "Restore Switches";
+    public string DisplayText => "Restore switches set by this schedule";
+    public int Wage { get; } = 10;
 }
 
 public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
 {
-    public override IEnumerator Execute(Dictionary<string, object> state) {
+    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
         state.TryGetValue("switches", out var value);
         if (value == null) {
             yield break;
@@ -23,7 +24,6 @@ public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
         foreach (var pair in switches) {
             var node = Graph.Shared.GetNode(pair.Key!);
             if (node == null) {
-                // TODO: Log error
                 yield break;
             }
 

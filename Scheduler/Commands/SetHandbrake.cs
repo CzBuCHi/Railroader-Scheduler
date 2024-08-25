@@ -1,7 +1,7 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Extensions;
@@ -14,14 +14,15 @@ namespace Scheduler.Commands;
 /// <param name="carIndex">Car index counted from locomotive.</param>
 public sealed class SetHandbrake(int carIndex) : ICommand
 {
-    public string DisplayText => $"Set handbrake on car #{CarIndex}";
+    public string DisplayText => $"Set handbrake on {CarIndex.GetRelativePosition()}";
+    public int Wage { get; } = 5;
 
     public int CarIndex { get; } = carIndex;
 }
 
 public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
 {
-    public override IEnumerator Execute(Dictionary<string, object> state) {
+    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         if (Command!.CarIndex == 0) {
@@ -33,7 +34,6 @@ public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
         var cars = consist.ToDictionary(o => o.Position, o => o.Car);
 
         if (!cars.TryGetValue(Command.CarIndex, out var car)) {
-            // TODO: Error message?
             yield break;
         }
 

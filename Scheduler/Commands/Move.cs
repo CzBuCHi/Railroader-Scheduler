@@ -19,27 +19,18 @@ using ILogger = Serilog.ILogger;
 
 namespace Scheduler.Commands;
 
-public sealed class Move(string id, bool stopBefore, bool forward, int carIndex, int carPosition, int? maxSpeed) : ICommand
+public sealed class Move(string id, bool stopBefore, bool forward, int carIndex, int? maxSpeed) : ICommand
 {
-    public string DisplayText => $"Move {(Forward ? "forward" : "backward")} at {(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")} and " +
-                                 $"stop with {AddOrdinalSuffix(CarPosition + 1)} car {(StopBefore ? "before" : "after")} switch '{Id}'.";
-
-    private static string AddOrdinalSuffix(int number) {
-        return number % 100 is >= 11 and <= 13
-            ? number + "th"
-            : (number % 10) switch {
-                1 => number + "st",
-                2 => number + "nd",
-                3 => number + "rd",
-                _ => number + "th"
-            };
-    }
+    public string DisplayText =>
+        $"Move {(Forward ? "forward" : "backward")} at {(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")}\r\n  " +
+        $"stop {Math.Abs(CarIndex).AddOrdinalSuffix()} car {(CarIndex > 0 ? "behind" : "in front of")} locomotive {(StopBefore ? "before" : "after")} switch '{Id}'.";
+    
+    public int Wage { get; } = 50;
 
     public string Id { get; } = id;
     public bool StopBefore { get; } = stopBefore;
     public bool Forward { get; } = forward;
     public int CarIndex { get; } = carIndex;
-    public int CarPosition { get; } = carPosition;
     public int? MaxSpeed { get; } = maxSpeed;
 }
 
@@ -61,7 +52,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
     public override bool ShowTrackSwitchVisualizers => true;
 
-    public override IEnumerator Execute(Dictionary<string, object> state) {
+    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         _Logger.Information($"Move {locomotive}");
@@ -109,8 +100,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         yield return new WaitForSecondsRealtime(0.5f);
 
-        var targetCar = locomotive.EnumerateCoupled(Command.Forward ? Car.End.F : Car.End.R)!.ToArray()[Command.CarPosition]!;
-        _Logger.Information($"  target car {targetCar}");
+        _Logger.Information($"  target car {car}");
         _Logger.Information("  waiting for AI to stop moving ...");
 
         // wait until AI stops ...
@@ -120,7 +110,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             }
 
             // ... on correct track segment
-            var carLocation = SchedulerUtility.GetCarLocation(targetCar, Command.Forward ? Car.End.R : Car.End.F);
+            var carLocation = SchedulerUtility.GetCarLocation(car, Command.Forward ? Car.End.R : Car.End.F);
 
             _Logger.Information($"  checking if {carLocation.segment.id} is {endLocation.segment.id}");
             return endLocation.segment == carLocation.segment;
@@ -138,7 +128,6 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
     private bool? _StopBefore;
     private bool? _Forward;
     private int? _CarIndex;
-    private int? _CarPosition;
     private int? _MaxSpeed;
     private bool _RoadMode;
 
@@ -154,10 +143,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         writer.WritePropertyName(nameof(Move.CarIndex));
         writer.WriteValue(Command!.CarIndex);
-
-        writer.WritePropertyName(nameof(Move.CarPosition));
-        writer.WriteValue(Command!.CarPosition);
-
+        
         if (Command!.MaxSpeed != null) {
             writer.WritePropertyName(nameof(Move.MaxSpeed));
             writer.WriteValue(Command!.MaxSpeed.Value);
@@ -179,10 +165,6 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         if (propertyName == nameof(Move.CarIndex)) {
             _CarIndex = serializer.Deserialize<int>(reader);
-        }
-
-        if (propertyName == nameof(Move.CarPosition)) {
-            _CarPosition = serializer.Deserialize<int>(reader);
         }
 
         if (propertyName == nameof(Move.MaxSpeed)) {
@@ -208,18 +190,12 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             missing.Add("CarIndex");
         }
 
-        if (_CarPosition == null) {
-            missing.Add("CarPosition");
-        }
-
         if (missing.Count > 0) {
             return $"Missing mandatory property '{string.Join(", ", missing)}'.";
         }
 
-        return new Move(_Id!, _StopBefore!.Value, _Forward!.Value, _CarIndex!.Value, _CarPosition!.Value, _RoadMode ? _MaxSpeed : null);
+        return new Move(_Id!, _StopBefore!.Value, _Forward!.Value, _CarIndex!.Value, _RoadMode ? _MaxSpeed : null);
     }
-
-    private int _DropdownIndex;
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
         if (_Forward == null) {
@@ -264,27 +240,36 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             })!
         );
 
-        SchedulerUtility.ResolveTrainCars(locomotive, out var trainCars, out var trainCarsPositions, true);
+        var consist = locomotive.EnumerateConsist();
+        var carIndices = consist.ToArray();
+
+        var trainCars = carIndices
+                        .Select(o => o.Position == 0
+                            ? $"Locomotive ({o.Car!.DisplayName})"
+                            : $"{o.Position.GetRelativePosition()} ({o.Car!.DisplayName})")
+                        .ToList();
+
+        var trainCarsPositions = carIndices.Select(o => o.Position).ToList();
+        var index = Array.FindIndex(carIndices, o => o.Position == _CarIndex);
 
         builder.AddField("Target car",
             builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("First", _DropdownIndex == 0, () => SetCarIndex(0));
-                strip.AddButtonSelectable("Last", _DropdownIndex == trainCars.Count - 1, () => SetCarIndex(trainCars.Count - 1));
+                strip.AddButtonSelectable("First", index == 0, () => SetCarIndex(0));
+                strip.AddButtonSelectable("Last", index == trainCars.Count - 1, () => SetCarIndex(trainCars.Count - 1));
             })!
         );
 
-        builder.AddField("Car index", builder.AddDropdown(trainCars, _DropdownIndex, SetCarIndex)!);
+        builder.AddField("Car index", builder.AddDropdown(trainCars, index, SetCarIndex)!);
 
         return;
 
         void SetCarIndex(int dropdownIndex) {
-            if (_DropdownIndex == dropdownIndex) {
+            var newCarIndex = trainCarsPositions[dropdownIndex];
+            if (_CarIndex == newCarIndex) {
                 return;
             }
 
-            _DropdownIndex = dropdownIndex;
-            _CarPosition = dropdownIndex;
-            _CarIndex = trainCarsPositions[dropdownIndex];
+            _CarIndex = newCarIndex;
             builder.Rebuild();
         }
 

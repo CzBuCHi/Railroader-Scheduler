@@ -16,10 +16,11 @@ public static class AutoEngineerPlannerPatches
         throw new NotImplementedException("This is a stub");
     }
 
+    // this will make train traveling in road mode to stop after defined distance (same behavior as yard mode, but with road speed)
     [HarmonyPostfix]
     [HarmonyPatch(typeof(AutoEngineerPlanner), nameof(HandleCommand))]
     public static void HandleCommand(AutoEngineerPlanner __instance, AutoEngineerCommand command) {
-        if (command.Mode == AutoEngineerMode.Road && command.Distance != null) {
+        if (command is { Mode: AutoEngineerMode.Road, Distance: not null }) {
             __instance.SetManualStopDistance(command.Distance.Value);
         }
     }

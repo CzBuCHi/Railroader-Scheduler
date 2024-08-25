@@ -7,6 +7,7 @@ namespace Scheduler.Utility;
 public interface ICommand
 {
     string DisplayText { get; }
+    int Wage { get; }
 }
 
 internal sealed class CommandConverter : JsonConverter<ICommand>

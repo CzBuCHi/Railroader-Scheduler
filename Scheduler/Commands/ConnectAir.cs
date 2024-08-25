@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using Game.Messages;
+using Game.Progression;
 using Game.State;
 using Model;
 using Scheduler.HarmonyPatches;
@@ -11,12 +12,13 @@ namespace Scheduler.Commands;
 /// <summary> Connect air on train. </summary>
 public sealed class ConnectAir : ICommand
 {
-    public string DisplayText => "Connect Air";
+    public string DisplayText => "Connect air";
+    public int Wage => 10;
 }
 
 public sealed class ConnectAirManager : CommandManager<ConnectAir>
 {
-    public override IEnumerator Execute(Dictionary<string, object> state) {
+    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         foreach (var car in locomotive.set!.Cars!) {
@@ -33,6 +35,8 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
                 StateManager.ApplyLocal(new SetGladhandsConnected(car.id!, adjacent!.id!, true));
             }
         }
+
+        
     }
 
     protected override object TryCreateCommand() {
