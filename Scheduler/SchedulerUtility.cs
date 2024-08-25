@@ -46,13 +46,12 @@ public static class SchedulerUtility
 
         var segment = startLocation.segment;
         Queue<QueueItem> queue = new();
-        queue.Enqueue(new QueueItem(segment, [segment.a], startLocation.DistanceTo(segment.a)));
-        queue.Enqueue(new QueueItem(segment, [segment.b], startLocation.DistanceTo(segment.b)));
+        EnqueueFirst(segment, segment.a);
+        EnqueueFirst(segment, segment.b);
 
         while (queue.Count > 0) {
             _Logger.Information($"queue count: {queue.Count}");
-            var (entrySegment, route, distance) = queue.Dequeue();
-
+            var (entrySegment, route, distance, fouling) = queue.Dequeue();
             if (route.Length > 50) {
                 _Logger.Information("route too long aborting search");
                 continue;
@@ -61,6 +60,23 @@ public static class SchedulerUtility
             _Logger.Information($"Distance: {distance} Node count: ({route.Length}) Segment: {entrySegment}");
 
             var lastNode = route.Last();
+            if (lastNode == targetSwitch) {
+                _Logger.Information("found target switch");
+
+                var location = Graph.Shared.LocationFrom(entrySegment, TrackSegment.End.A)!;
+                var finalDistance = distance;
+                if (fouling) {
+                    
+                    var foulingDistance = Graph.Shared.CalculateFoulingDistance(lastNode);
+                    _Logger.Information("fouling, adding " + foulingDistance);
+
+                    location = Graph.Shared.LocationByMoving(location.Value, foulingDistance);
+                    finalDistance += foulingDistance;
+                }
+
+                _Logger.Error($"finalDistance: {finalDistance}");
+                return new FinalRoute(finalDistance, route, location.Value);
+            }
 
             var segments = Graph.Shared.SegmentsConnectedTo(lastNode).Where(o => o != entrySegment).ToArray();
             if (segments.Length == 0) {
@@ -69,7 +85,7 @@ public static class SchedulerUtility
                 continue;
             }
 
-            bool fouling = false;
+            fouling = false;
             TrackSegment[] choices;
             if (segments.Length == 1) {
                 // simple node
@@ -95,29 +111,15 @@ public static class SchedulerUtility
 
             foreach (var choice in choices) {
                 var node = choice.GetOtherNode(lastNode);
-                var nextDistance = distance + choice.GetLength();
-                TrackNode[] nextRoute = [..route, node];
-                if (node == targetSwitch) {
-                    _Logger.Error("found target switch");
-
-                    var location =   Graph.Shared.LocationFrom(choice, TrackSegment.End.A)!;
-                    
-
-                    var finalDistance = nextDistance;
-                    if (fouling) {
-                        var foulingDistance = Graph.Shared.CalculateFoulingDistance(node);
-                        location = Graph.Shared.LocationByMoving(location.Value, foulingDistance);
-                        finalDistance -= foulingDistance;
-                    }
-
-                    _Logger.Error($"finalDistance: {finalDistance}");
-                    return new FinalRoute(finalDistance, nextRoute, location.Value);
-                }
-                
-                queue.Enqueue(new QueueItem(choice, nextRoute, nextDistance));
+                queue.Enqueue(new QueueItem(choice, [..route, node], distance + choice.GetLength(), fouling));
             }
         }
         return null;
+
+        void EnqueueFirst(TrackSegment trackSegment, TrackNode node) {
+            var fouling = Graph.Shared.DecodeSwitchAt(node, out var enter, out _, out _) && trackSegment == enter;
+            queue.Enqueue(new QueueItem(trackSegment, [node], startLocation.DistanceTo(node), fouling));
+        }
     }
 
 
@@ -128,6 +130,6 @@ public static class SchedulerUtility
 
     public record FinalRoute(float Distance, TrackNode[] Nodes, Location Location);
 
-    private record QueueItem(TrackSegment EntrySegment, TrackNode[] Nodes, float Distance);
+    private record QueueItem(TrackSegment EntrySegment, TrackNode[] Nodes, float Distance, bool Fouling);
 
 }

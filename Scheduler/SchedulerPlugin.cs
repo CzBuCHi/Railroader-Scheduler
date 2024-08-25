@@ -68,6 +68,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     private static void OnMapDidUnload(MapDidUnloadEvent obj) {
         TrackNodeVisualizer.Shared = null!;
         SchedulerDialog.Shared = null!;
+        LocationVisualizer.Shared = null!;
     }
 
     private static TrackNode? _SelectedSwitch;
@@ -112,6 +113,9 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         var go = new GameObject();
         go.AddComponent<TrackNodeVisualizer>();
 
+        var go2 = new GameObject();
+        go2.AddComponent<LocationVisualizer>();
+        
         foreach (var trackNode in Graph.Shared.Nodes) {
             if (!Graph.Shared.IsSwitch(trackNode)) {
                 continue;

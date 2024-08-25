@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using Scheduler.Extensions;
 using Scheduler.Messages;
 using Scheduler.Utility;
+using Scheduler.Visualizers;
 using Serilog;
 using Track;
 using UI.Builder;
@@ -23,7 +24,7 @@ public sealed class Move(string id, bool stopBefore, bool forward, int carIndex,
 {
     public string DisplayText =>
         $"Move {(Forward ? "forward" : "backward")} at {(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")}\r\n  " +
-        $"stop {Math.Abs(CarIndex).AddOrdinalSuffix()} car {(CarIndex > 0 ? "behind" : "in front of")} locomotive {(StopBefore ? "before" : "after")} switch '{Id}'.";
+        $"stop {Math.Abs(CarIndex).GetRelativePosition()} {(StopBefore ? "before" : "after")} switch '{Id}'.";
     
     public int Wage { get; } = 50;
 
@@ -64,19 +65,30 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         }
 
         _Logger.Information($"  to {node}");
+        if (SchedulerPlugin.Settings.Debug) {
+            TrackNodeVisualizer.Shared.Show(node);
+        }
 
         var car = locomotive.EnumerateConsist().Where(o => o.Position == Command.CarIndex).Select(o => o.Car!).First();
+        var carEnd = Command.Forward ? Car.End.R : Car.End.F;
 
         _Logger.Information($"  car {car}");
 
-        Location location;
+        var location = Location.Invalid;
         if (state.TryGetValue("location", out var locationOverride)) {
             location = (Location)locationOverride;
-        } else {
+            _Logger.Information($"  saved location {location}");
+        }
+
+        if (!location.IsValid) {
             location = Command.Forward ? car.LocationR : car.LocationF;
+            _Logger.Information($"  car location {location}");
         }
 
         _Logger.Information($"  location {location}");
+        if (SchedulerPlugin.Settings.Debug) {
+            LocationVisualizer.Shared.Show(location);
+        }
 
         var route = SchedulerUtility.GetDistanceToSwitch(location, node);
         if (route == null) {
@@ -103,14 +115,21 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         _Logger.Information($"  target car {car}");
         _Logger.Information("  waiting for AI to stop moving ...");
 
+        bool statusChanged = false;
         // wait until AI stops ...
         yield return new WaitUntil(() => {
+            persistence.ObservePlannerStatusChanged(() => statusChanged = true);
+            _Logger.Information("  statusChanged: " + statusChanged);
+            if (statusChanged) {
+                return true;
+            }
+
             if (!locomotive.IsStopped()) {
                 return false;
             }
 
             // ... on correct track segment
-            var carLocation = SchedulerUtility.GetCarLocation(car, Command.Forward ? Car.End.R : Car.End.F);
+            var carLocation = SchedulerUtility.GetCarLocation(car, carEnd);
 
             _Logger.Information($"  checking if {carLocation.segment.id} is {endLocation.segment.id}");
             return endLocation.segment == carLocation.segment;
