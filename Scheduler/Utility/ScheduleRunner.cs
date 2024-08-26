@@ -41,6 +41,10 @@ internal sealed class ScheduleRunner : MonoBehaviour
             while (wait.MoveNext()) {
                 yield return wait.Current;
             }
+
+            if (state.TryGetValue("stop", out var value) && (bool)value) {
+                break;
+            }
         }
 
         var wage = (int)state["wage"];

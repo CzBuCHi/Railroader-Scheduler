@@ -13,7 +13,7 @@ namespace Scheduler.Commands;
 public sealed class ConnectAir : ICommand
 {
     public string DisplayText => "Connect air";
-    public int Wage => 10;
+    public int Wage => 5;
 }
 
 public sealed class ConnectAirManager : CommandManager<ConnectAir>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Messages;
+using HarmonyLib;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
@@ -69,25 +70,26 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             TrackNodeVisualizer.Shared.Show(node);
         }
 
-        var car = locomotive.EnumerateConsist().Where(o => o.Position == Command.CarIndex).Select(o => o.Car!).First();
+        var consist = locomotive.EnumerateConsist();
+        var cars = consist.ToDictionary(o => o.Position, o => o.Car);
+        if (!cars.TryGetValue(Command.CarIndex, out var car)) {
+            yield break;
+        }
+
+        car!.SetHandbrake(true);
+        yield return new WaitForSecondsRealtime(1f);
+        car!.SetHandbrake(false);
+
         var carEnd = Command.Forward ? Car.End.R : Car.End.F;
 
         _Logger.Information($"  car {car}");
 
-        var location = Location.Invalid;
-        if (state.TryGetValue("location", out var locationOverride)) {
-            location = (Location)locationOverride;
-            _Logger.Information($"  saved location {location}");
-        }
-
-        if (!location.IsValid) {
-            location = Command.Forward ? car.LocationR : car.LocationF;
-            _Logger.Information($"  car location {location}");
-        }
+        var location = Command.Forward ? car.LocationR.Flipped() : car.LocationF;
+        _Logger.Information($"  car location {location}");
 
         _Logger.Information($"  location {location}");
         if (SchedulerPlugin.Settings.Debug) {
-            LocationVisualizer.Shared.Show(location);
+            LocationVisualizer.Shared.Show(location, Color.green);
         }
 
         var route = SchedulerUtility.GetDistanceToSwitch(location, node);
@@ -115,12 +117,13 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         _Logger.Information($"  target car {car}");
         _Logger.Information("  waiting for AI to stop moving ...");
 
-        bool statusChanged = false;
+        var stopMove = false;
+        var observer = persistence.ObserveOrders(_ => stopMove = true, false);
+        
         // wait until AI stops ...
         yield return new WaitUntil(() => {
-            persistence.ObservePlannerStatusChanged(() => statusChanged = true);
-            _Logger.Information("  statusChanged: " + statusChanged);
-            if (statusChanged) {
+            if (stopMove) {
+                _Logger.Information("  stopMove");
                 return true;
             }
 
@@ -130,17 +133,27 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
             // ... on correct track segment
             var carLocation = SchedulerUtility.GetCarLocation(car, carEnd);
+            if (SchedulerPlugin.Settings.Debug) {
+                LocationVisualizer.Shared.Show(carLocation, Color.red);
+            }
 
             _Logger.Information($"  checking if {carLocation.segment.id} is {endLocation.segment.id}");
             return endLocation.segment == carLocation.segment;
         });
 
+        observer.Dispose();
+
+        if (stopMove) {
+            state["stop"] = true;
+            yield break;
+        }
+
         if (Command.MaxSpeed != null) {
             // put train to manual mode (otherwise UI will show Road mode, when train is not moving)
             helper.SetOrdersValue(AutoEngineerMode.Off);
         }
+
         _Logger.Information("  move completed ...");
-        state["location"] = endLocation;
     }
 
     private string? _Id;
