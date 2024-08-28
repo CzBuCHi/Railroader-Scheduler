@@ -8,12 +8,11 @@ namespace Scheduler.Commands;
 public class DeserializationFailed(string displayText) : ICommand
 {
     public string DisplayText { get; } = displayText;
-    public int Wage { get; } = 0;
 }
 
 public sealed class DeserializationFailedManager : CommandManager<DeserializationFailed>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
         throw new NotSupportedException();
     }
 

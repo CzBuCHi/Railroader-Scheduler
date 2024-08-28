@@ -2,9 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Messages;
-using HarmonyLib;
 using Model;
 using Model.AI;
 using Newtonsoft.Json;
@@ -18,22 +18,50 @@ using UI.Builder;
 using UI.EngineControls;
 using UnityEngine;
 using ILogger = Serilog.ILogger;
+using Location = Track.Location;
 
 namespace Scheduler.Commands;
 
-public sealed class Move(string id, bool stopBefore, bool forward, int carIndex, int? maxSpeed) : ICommand
+public sealed class Move(string id, StopMode stopMode, bool forward, int carIndex, int? maxSpeed) : ICommand
 {
-    public string DisplayText =>
-        $"Move {(Forward ? "forward" : "backward")} at {(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")}\r\n  " +
-        $"stop {Math.Abs(CarIndex).GetRelativePosition()} {(StopBefore ? "before" : "after")} switch '{Id}'.";
-    
-    public int Wage { get; } = 50;
+    public string DisplayText {
+        get {
+            var sb = new StringBuilder();
+            sb.Append("Move ").Append(Forward ? "forward" : "backward")
+              .Append(" at ").Append(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")
+              .Append("\r\n  stop ");
+
+            switch (StopMode) {
+                case StopMode.BeforeSwitch:
+                case StopMode.AfterSwitch:
+                    sb.Append(Math.Abs(CarIndex).GetRelativePosition()).Append(StopMode == StopMode.BeforeSwitch ? "before" : "after")
+                      .Append(" switch '").Append(Id).Append("'");
+                    break;
+                case StopMode.CarLengths:
+                    sb.Append("after ").Append(CarIndex).Append(" car lengths");
+                    break;
+                case StopMode.EndOfTrack:
+                    sb.Append("at end of track");
+                    break;
+            }
+
+            return sb.ToString();
+        }
+    }
 
     public string Id { get; } = id;
-    public bool StopBefore { get; } = stopBefore;
+    public StopMode StopMode { get; } = stopMode;
     public bool Forward { get; } = forward;
     public int CarIndex { get; } = carIndex;
     public int? MaxSpeed { get; } = maxSpeed;
+}
+
+public enum StopMode
+{
+    BeforeSwitch,
+    AfterSwitch,
+    EndOfTrack,
+    CarLengths,
 }
 
 public sealed class MoveManager : CommandManager<Move>, IDisposable
@@ -54,25 +82,44 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
     public override bool ShowTrackSwitchVisualizers => true;
 
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    private SchedulerUtility.FinalRoute? GetTargetLocation(Location location) {
+        switch (Command!.StopMode) {
+            case StopMode.BeforeSwitch:
+            case StopMode.AfterSwitch:
+                var node = Graph.Shared.GetNode(Command!.Id);
+                if (node == null) {
+                    _Logger.Information("  node not found");
+                    return null;
+                }
+
+                _Logger.Information($"  to {node}");
+                if (SchedulerPlugin.Settings.Debug) {
+                    TrackNodeVisualizer.Shared.Show(node);
+                }
+
+                return SchedulerUtility.GetDistanceToSwitch(location, node);
+
+            case StopMode.EndOfTrack:
+                return SchedulerUtility.GetDistanceToTrackEnd(location);
+
+            case StopMode.CarLengths:
+                var distance = Command.CarIndex * 12.2f;
+                var targetLocation = Graph.Shared.LocationByMoving(location, distance);
+                return new SchedulerUtility.FinalRoute(distance, targetLocation);
+
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    public override IEnumerator Execute(Dictionary<string, object> state) {
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         _Logger.Information($"Move {locomotive}");
 
-        var node = Graph.Shared.GetNode(Command!.Id);
-        if (node == null) {
-            _Logger.Information("  node not found");
-            yield break;
-        }
-
-        _Logger.Information($"  to {node}");
-        if (SchedulerPlugin.Settings.Debug) {
-            TrackNodeVisualizer.Shared.Show(node);
-        }
-
         var consist = locomotive.EnumerateConsist();
         var cars = consist.ToDictionary(o => o.Position, o => o.Car);
-        if (!cars.TryGetValue(Command.CarIndex, out var car)) {
+        if (!cars.TryGetValue(Command!.CarIndex, out var car)) {
             yield break;
         }
 
@@ -92,20 +139,22 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             LocationVisualizer.Shared.Show(location, Color.green);
         }
 
-        var route = SchedulerUtility.GetDistanceToSwitch(location, node);
+        var route = GetTargetLocation(location);
         if (route == null) {
             _Logger.Information("  route not found");
             yield break;
         }
 
         _Logger.Information($"  distance {route.Distance}");
-        _Logger.Information($"  nodes {string.Join(",", route.Nodes.Select(o => o.ToString()))}");
+
+        state["wage"] = (int)state["wage"] + (int)Math.Round(route.Distance * 0.01);
 
         var endLocation = route.Location;
         
         var persistence = new AutoEngineerPersistence(locomotive.KeyValueObject!);
         var helper = new AutoEngineerOrdersHelper(locomotive, persistence);
         helper.SetOrdersValue(Command.MaxSpeed == null ? AutoEngineerMode.Yard : AutoEngineerMode.Road, Command.Forward, Command.MaxSpeed, route.Distance);
+
 
         _Logger.Information("  waiting for AI to start moving ...");
 
@@ -119,7 +168,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         var stopMove = false;
         var observer = persistence.ObserveOrders(_ => stopMove = true, false);
-        
+
         // wait until AI stops ...
         yield return new WaitUntil(() => {
             if (stopMove) {
@@ -157,18 +206,18 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
     }
 
     private string? _Id;
-    private bool? _StopBefore;
+    private StopMode? _StopMode;
     private bool? _Forward;
     private int? _CarIndex;
     private int? _MaxSpeed;
     private bool _RoadMode;
-
+    
     public override void SerializeProperties(JsonWriter writer) {
         writer.WritePropertyName(nameof(Move.Id));
         writer.WriteValue(Command!.Id);
 
-        writer.WritePropertyName(nameof(Move.StopBefore));
-        writer.WriteValue(Command!.StopBefore);
+        writer.WritePropertyName(nameof(Move.StopMode));
+        writer.WriteValue((int)Command!.StopMode);
 
         writer.WritePropertyName(nameof(Move.Forward));
         writer.WriteValue(Command!.Forward);
@@ -187,8 +236,8 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             _Id = serializer.Deserialize<string>(reader);
         }
 
-        if (propertyName == nameof(Move.StopBefore)) {
-            _StopBefore = serializer.Deserialize<bool>(reader);
+        if (propertyName == nameof(Move.StopMode)) {
+            _StopMode = (StopMode?)serializer.Deserialize<int>(reader);
         }
 
         if (propertyName == nameof(Move.Forward)) {
@@ -210,8 +259,8 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             missing.Add("Id");
         }
 
-        if (_StopBefore == null) {
-            missing.Add("StopBefore");
+        if (_StopMode == null) {
+            missing.Add("StopMode");
         }
 
         if (_Forward == null) {
@@ -226,7 +275,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             return $"Missing mandatory property '{string.Join(", ", missing)}'.";
         }
 
-        return new Move(_Id!, _StopBefore!.Value, _Forward!.Value, _CarIndex!.Value, _RoadMode ? _MaxSpeed : null);
+        return new Move(_Id!, _StopMode!.Value, _Forward!.Value, _CarIndex!.Value, _RoadMode ? _MaxSpeed : null);
     }
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
@@ -239,14 +288,14 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         builder.RebuildOnEvent<SelectedSwitchChanged>();
 
         // ReSharper disable once StringLiteralTypo
-        builder.AddField("Direction".Color("cccccc")!, 
+        builder.AddField("Direction".Color("cccccc"), 
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Forward", _Forward == true, () => SetDirection(true));
                 strip.AddButtonSelectable("Backward", _Forward == false, () => SetDirection(false));
             })!
         );
 
-        builder.AddField("Mode",
+        builder.AddField("Mode".Color("cccccc"),
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Road", _RoadMode, () => SetRoadMode(true));
                 strip.AddButtonSelectable("Yard", !_RoadMode, () => SetRoadMode(false));
@@ -267,41 +316,71 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         builder.AddField("Stop location", 
             builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("Before switch", _StopBefore == true, () => SetStopBefore(true));
-                strip.AddButtonSelectable("After switch", _StopBefore == false, () => SetStopBefore(false));
+                strip.AddButtonSelectable("Before switch", _StopMode == StopMode.BeforeSwitch, () => SetStopMode(StopMode.BeforeSwitch));
+                strip.AddButtonSelectable("After switch", _StopMode == StopMode.AfterSwitch, () => SetStopMode(StopMode.AfterSwitch));
+                strip.AddButtonSelectable("End of track", _StopMode == StopMode.EndOfTrack, () => SetStopMode(StopMode.EndOfTrack));
+                strip.AddButtonSelectable("Car lengths", _StopMode == StopMode.CarLengths, () => SetStopMode(StopMode.CarLengths));
             })!
         );
 
-        var consist = locomotive.EnumerateConsist();
-        var carIndices = consist.ToArray();
+        switch (_StopMode) {
+            case StopMode.BeforeSwitch:
+            case StopMode.AfterSwitch:
+                var consist = locomotive.EnumerateConsist();
+                var carIndices = consist.ToArray();
 
-        var trainCars = carIndices
-                        .Select(o => o.Position == 0
-                            ? $"Locomotive ({o.Car!.DisplayName})"
-                            : $"{o.Position.GetRelativePosition()} ({o.Car!.DisplayName})")
-                        .ToList();
+                var trainCars = carIndices
+                                .Select(o => o.Position == 0
+                                    ? $"Locomotive ({o.Car!.DisplayName})"
+                                    : $"{o.Position.GetRelativePosition()} ({o.Car!.DisplayName})")
+                                .ToList();
 
-        var trainCarsPositions = carIndices.Select(o => o.Position).ToList();
-        var index = Array.FindIndex(carIndices, o => o.Position == _CarIndex);
+                var trainCarsPositions = carIndices.Select(o => o.Position).ToList();
+                var index = Array.FindIndex(carIndices, o => o.Position == _CarIndex);
 
-        builder.AddField("Target car",
-            builder.ButtonStrip(strip => {
-                strip.AddButtonSelectable("First", index == 0, () => SetCarIndex(0));
-                strip.AddButtonSelectable("Last", index == trainCars.Count - 1, () => SetCarIndex(trainCars.Count - 1));
-            })!
-        );
+                builder.AddField("Target car",
+                    builder.ButtonStrip(strip => {
+                        strip.AddButtonSelectable("First", index == 0, () => SetCarIndex(0));
+                        strip.AddButtonSelectable("Last", index == trainCars.Count - 1, () => SetCarIndex(trainCars.Count - 1));
+                    })!
+                );
 
-        builder.AddField("Car index", builder.AddDropdown(trainCars, index, SetCarIndex)!);
+                builder.AddField("Car index", builder.AddDropdown(trainCars, index, SetCarIndex)!);
+
+                break;
+
+                void SetCarIndex(int dropdownIndex) {
+                    var newCarIndex = trainCarsPositions[dropdownIndex];
+                    if (_CarIndex == newCarIndex) {
+                        return;
+                    }
+
+                    _CarIndex = newCarIndex;
+                    builder.Rebuild();
+                }
+
+            case StopMode.CarLengths:
+                builder.AddField("Car Lengths".Color("cccccc"),
+                    builder.ButtonStrip(strip => {
+                        strip.AddButtonSelectable("1", _CarIndex == 1, () => SetCarLengths(1));
+                        strip.AddButtonSelectable("2", _CarIndex == 2, () => SetCarLengths(2));
+                        strip.AddButtonSelectable("5", _CarIndex == 5, () => SetCarLengths(5));
+                        strip.AddButtonSelectable("10", _CarIndex == 10, () => SetCarLengths(10));
+                        strip.AddButtonSelectable("20", _CarIndex == 20, () => SetCarLengths(20));
+                    })!
+                );
+
+                break;
+        }
 
         return;
 
-        void SetCarIndex(int dropdownIndex) {
-            var newCarIndex = trainCarsPositions[dropdownIndex];
-            if (_CarIndex == newCarIndex) {
+        void SetCarLengths(int carLengths) {
+            if (_CarIndex == carLengths) {
                 return;
             }
 
-            _CarIndex = newCarIndex;
+            _CarIndex = carLengths;
             builder.Rebuild();
         }
 
@@ -323,12 +402,12 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             builder.Rebuild();
         }
 
-        void SetStopBefore(bool stopBefore) {
-            if (_StopBefore == stopBefore) {
+        void SetStopMode(StopMode stopMode) {
+            if (_StopMode == stopMode) {
                 return;
             }
 
-            _StopBefore = stopBefore;
+            _StopMode = stopMode;
             builder.Rebuild();
         }
     }

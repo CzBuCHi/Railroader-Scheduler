@@ -1,5 +1,6 @@
 ﻿using System;
 using Newtonsoft.Json;
+using Scheduler.Commands;
 
 namespace Scheduler.Utility;
 
@@ -7,7 +8,6 @@ namespace Scheduler.Utility;
 public interface ICommand
 {
     string DisplayText { get; }
-    int Wage { get; }
 }
 
 internal sealed class CommandConverter : JsonConverter<ICommand>
@@ -57,7 +57,12 @@ internal sealed class CommandConverter : JsonConverter<ICommand>
             throw new JsonSerializationException($"Serializer for '{typeName}' was not found.");
         }
 
-        manager.Deserialize(reader, serializer);
-        return manager.Command;
+        try {
+            manager.Deserialize(reader, serializer);
+            return manager.Command;
+        } catch (Exception e) {
+            return new DeserializationFailed("Deserialization Failed: " + e.Message);
+        }
+  
     }
 }

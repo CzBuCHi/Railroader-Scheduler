@@ -10,12 +10,13 @@ namespace Scheduler.Commands;
 public sealed class ReleaseHandbrakes : ICommand
 {
     public string DisplayText => "Release handbrakes";
-    public int Wage { get; } = 5;
 }
 
 public sealed class ReleaseHandbrakesManager : CommandManager<ReleaseHandbrakes>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + 1;
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         locomotive.EnumerateCoupled(Car.End.F)!.Do(c => c.SetHandbrake(false));
         yield break;

@@ -34,13 +34,8 @@ public abstract class CommandManager
     /// <summary> Execute current command. </summary>
     /// <param name="state">State used to pass values between commands.</param>
     /// <returns>Enumerator, that is processed by unity Coroutine.</returns>
-    public IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + Command!.Wage;
-        return ExecuteCore(state);
-    }
-
-    protected abstract IEnumerator ExecuteCore(Dictionary<string, object> state);
-
+    public abstract IEnumerator Execute(Dictionary<string, object> state);
+    
     /// <summary> Read single property value from json <paramref name="reader"/>. </summary>
     /// <param name="propertyName">Name of property to read.</param>
     /// <param name="reader">Json reader.</param>

@@ -41,6 +41,7 @@ public sealed class SchedulerDialog
     private void WindowOnOnShownDidChange(bool isShown) {
         if (!isShown) {
             Messenger.Default!.Send(new RebuildCarInspectorAIPanel());
+            SchedulerPlugin.ShowTrackSwitchVisualizers = false;
         }
     }
 

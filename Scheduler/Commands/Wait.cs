@@ -13,14 +13,13 @@ namespace Scheduler.Commands;
 public sealed class Wait(float milliSeconds) : ICommand
 {
     public string DisplayText => $"Wait for {MilliSeconds * 0.001f:0.###} seconds";
-    public int Wage { get; } = 0;
 
     public float MilliSeconds { get; } = milliSeconds;
 }
 
 public sealed class WaitManager : CommandManager<Wait>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
         return new WaitForSecondsRealtime(Command!.MilliSeconds);
     }
 

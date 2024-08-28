@@ -9,12 +9,13 @@ namespace Scheduler.Commands;
 public sealed class RestoreSwitches : ICommand
 {
     public string DisplayText => "Restore switches set by this schedule";
-    public int Wage { get; } = 10;
 }
 
 public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + 1;
+
         state.TryGetValue("switches", out var value);
         if (value == null) {
             yield break;

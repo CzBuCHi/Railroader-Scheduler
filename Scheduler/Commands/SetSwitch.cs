@@ -17,7 +17,6 @@ namespace Scheduler.Commands;
 public sealed class SetSwitch(string id, bool isThrown) : ICommand
 {
     public string DisplayText => $"Set switch '{Id}' to {(IsThrown ? "reverse" : "normal")}";
-    public int Wage { get; } = 5;
 
     public string Id { get; } = id;
     public bool IsThrown { get; } = isThrown;
@@ -39,7 +38,9 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
 
     public override bool ShowTrackSwitchVisualizers => true;
 
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + 1;
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         var node = Graph.Shared.GetNode(Command!.Id);

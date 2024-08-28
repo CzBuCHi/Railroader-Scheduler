@@ -15,14 +15,15 @@ namespace Scheduler.Commands;
 public sealed class Uncouple(int carIndex) : ICommand
 {
     public string DisplayText => $"Uncouple {CarIndex.GetRelativePosition()}";
-    public int Wage { get; } = 5;
 
     public int CarIndex { get; } = carIndex;
 }
 
 public sealed class UncoupleManager : CommandManager<Uncouple>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + 1;
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         if (Command!.CarIndex == 0) {
             locomotive.SetHandbrake(true);

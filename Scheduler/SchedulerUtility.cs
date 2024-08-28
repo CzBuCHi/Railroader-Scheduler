@@ -38,11 +38,9 @@ public static class SchedulerUtility
 
     private static readonly Serilog.ILogger _Logger = Log.ForContext(typeof(SchedulerUtility))!;
 
-    [SuppressMessage("ReSharper", "AssignNullToNotNullAttribute")]
-    [SuppressMessage("ReSharper", "PossibleNullReferenceException")]
-    public static FinalRoute? GetDistanceToSwitch(Location startLocation, TrackNode targetSwitch) {
 
-        _Logger.Information("GetDistanceToSwitch: from " + startLocation + " to " + targetSwitch);
+    public static FinalRoute? GetDistanceToTrackEnd(Location startLocation, Func<TrackNode, bool> isFinalNode) {
+        _Logger.Information("GetDistanceToSwitch: from " + startLocation + " to end of track");
 
         var segment = startLocation.segment;
         Queue<QueueItem> queue = new();
@@ -60,7 +58,7 @@ public static class SchedulerUtility
             _Logger.Information($"Distance: {distance} Node count: ({route.Length}) Segment: {entrySegment}");
 
             var lastNode = route.Last();
-            if (lastNode == targetSwitch) {
+            if (isFinalNode(lastNode)) {
                 _Logger.Information("found target switch");
 
                 var location = Graph.Shared.LocationFrom(entrySegment, TrackSegment.End.A)!;
@@ -75,7 +73,7 @@ public static class SchedulerUtility
                 }
 
                 _Logger.Error($"finalDistance: {finalDistance}");
-                return new FinalRoute(finalDistance, route, location.Value);
+                return new FinalRoute(finalDistance, location.Value);
             }
 
             var segments = Graph.Shared.SegmentsConnectedTo(lastNode).Where(o => o != entrySegment).ToArray();
@@ -122,13 +120,21 @@ public static class SchedulerUtility
         }
     }
 
+    public static FinalRoute? GetDistanceToTrackEnd(Location startLocation) {
+        return GetDistanceToTrackEnd(startLocation, node => Graph.Shared.NodeIsDeadEnd(node, out _)); 
+    }
+
+    public static FinalRoute? GetDistanceToSwitch(Location startLocation, TrackNode targetSwitch) {
+        return GetDistanceToTrackEnd(startLocation, node => node == targetSwitch);
+    }
+
 
     public static Location GetCarLocation(Car car, Car.End end) {
         var logical = car.EndToLogical(end);
         return logical == Car.LogicalEnd.A ? car.LocationA : car.LocationB.Flipped();
     }
 
-    public record FinalRoute(float Distance, TrackNode[] Nodes, Location Location);
+    public record FinalRoute(float Distance, Location Location);
 
     private record QueueItem(TrackSegment EntrySegment, TrackNode[] Nodes, float Distance, bool Fouling);
 

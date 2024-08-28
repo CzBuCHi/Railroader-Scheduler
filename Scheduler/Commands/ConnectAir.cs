@@ -13,12 +13,13 @@ namespace Scheduler.Commands;
 public sealed class ConnectAir : ICommand
 {
     public string DisplayText => "Connect air";
-    public int Wage => 5;
 }
 
 public sealed class ConnectAirManager : CommandManager<ConnectAir>
 {
-    protected override IEnumerator ExecuteCore(Dictionary<string, object> state) {
+    public override IEnumerator Execute(Dictionary<string, object> state) {
+        state["wage"] = (int)state["wage"] + 1;
+
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         foreach (var car in locomotive.set!.Cars!) {
