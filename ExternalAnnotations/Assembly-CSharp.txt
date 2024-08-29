@@ -1,6 +1,8 @@
 F:Track.Location.segment
 M:Track.TrackSegment.NodeForEnd(Track.TrackSegment.End)
 M:UI.Builder.UIPanelBuilder.AddButton(System.String,System.Action)
+P:GalaSoft.MvvmLight.Messaging.Messenger.Default
+P:Game.State.StateManager.Shared
 P:Track.Graph.Nodes
 P:Track.Graph.Shared
-P:Game.State.StateManager.Shared
+P:TrainController.Shared

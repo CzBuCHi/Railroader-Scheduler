@@ -1,9 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using GalaSoft.MvvmLight.Messaging;
 using Game.State;
 using Model;
 using Scheduler.Commands;
 using Scheduler.Data;
+using Scheduler.Messages;
 using Serilog;
 using UnityEngine;
 using ILogger = Serilog.ILogger;
@@ -29,6 +31,8 @@ internal sealed class ScheduleRunner : MonoBehaviour
         };
 
         for (var i = firstCommand; i < schedule.Commands.Count; i++) {
+            Messenger.Default.Send(new CommandIndexChanged { CommandIndex = i });
+
             state["index"] = i;
             var command = schedule.Commands[i]!;
 

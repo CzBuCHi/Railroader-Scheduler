@@ -29,12 +29,12 @@ public sealed class Move(string id, StopMode stopMode, bool forward, int carInde
             var sb = new StringBuilder();
             sb.Append("Move ").Append(Forward ? "forward" : "backward")
               .Append(" at ").Append(MaxSpeed == null ? "yard speed" : $"max speed {MaxSpeed} MPH")
-              .Append("\r\n  stop ");
+              .Append(", stop ");
 
             switch (StopMode) {
                 case StopMode.BeforeSwitch:
                 case StopMode.AfterSwitch:
-                    sb.Append(Math.Abs(CarIndex).GetRelativePosition()).Append(StopMode == StopMode.BeforeSwitch ? "before" : "after")
+                    sb.Append(Math.Abs(CarIndex).GetRelativePosition()).Append(StopMode == StopMode.BeforeSwitch ? " before" : " after")
                       .Append(" switch '").Append(Id).Append("'");
                     break;
                 case StopMode.CarLengths:
@@ -117,24 +117,23 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         _Logger.Information($"Move {locomotive}");
 
-        var consist = locomotive.EnumerateConsist();
-        var cars = consist.ToDictionary(o => o.Position, o => o.Car);
-        if (!cars.TryGetValue(Command!.CarIndex, out var car)) {
-            yield break;
+        var carEnd = Command!.Forward ? Car.End.R : Car.End.F;
+        Car car;
+        if (Command!.StopMode == StopMode.CarLengths) {
+            car = locomotive.EnumerateCoupled(carEnd)!.First();
+        } else {
+            var consist = locomotive.EnumerateConsist();
+            var cars = consist.ToDictionary(o => o.Position, o => o.Car);
+            if (!cars.TryGetValue(Command!.CarIndex, out car)) {
+                yield break;
+            }
+            
+            _Logger.Information($"  car {car}");
         }
-
-        car!.SetHandbrake(true);
-        yield return new WaitForSecondsRealtime(1f);
-        car!.SetHandbrake(false);
-
-        var carEnd = Command.Forward ? Car.End.R : Car.End.F;
-
-        _Logger.Information($"  car {car}");
 
         var location = Command.Forward ? car.LocationR.Flipped() : car.LocationF;
         _Logger.Information($"  car location {location}");
 
-        _Logger.Information($"  location {location}");
         if (SchedulerPlugin.Settings.Debug) {
             LocationVisualizer.Shared.Show(location, Color.green);
         }
@@ -147,7 +146,9 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
 
         _Logger.Information($"  distance {route.Distance}");
 
-        state["wage"] = (int)state["wage"] + (int)Math.Round(route.Distance * 0.01);
+        if (route.Distance > 100) {
+            state["wage"] = (int)state["wage"] + 10;
+        }
 
         var endLocation = route.Location;
         
@@ -288,14 +289,14 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         builder.RebuildOnEvent<SelectedSwitchChanged>();
 
         // ReSharper disable once StringLiteralTypo
-        builder.AddField("Direction".Color("cccccc"), 
+        builder.AddField("Direction".Color("888888"), 
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Forward", _Forward == true, () => SetDirection(true));
                 strip.AddButtonSelectable("Backward", _Forward == false, () => SetDirection(false));
             })!
         );
 
-        builder.AddField("Mode".Color("cccccc"),
+        builder.AddField("Mode".Color("999999"),
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Road", _RoadMode, () => SetRoadMode(true));
                 strip.AddButtonSelectable("Yard", !_RoadMode, () => SetRoadMode(false));
@@ -312,8 +313,6 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
             );
         }
 
-        builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => _Id = o, "You can select Id by clicking on switch")!);
-
         builder.AddField("Stop location", 
             builder.ButtonStrip(strip => {
                 strip.AddButtonSelectable("Before switch", _StopMode == StopMode.BeforeSwitch, () => SetStopMode(StopMode.BeforeSwitch));
@@ -326,6 +325,8 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
         switch (_StopMode) {
             case StopMode.BeforeSwitch:
             case StopMode.AfterSwitch:
+                builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => _Id = o, "You can select Id by clicking on switch")!);
+
                 var consist = locomotive.EnumerateConsist();
                 var carIndices = consist.ToArray();
 
@@ -360,7 +361,7 @@ public sealed class MoveManager : CommandManager<Move>, IDisposable
                 }
 
             case StopMode.CarLengths:
-                builder.AddField("Car Lengths".Color("cccccc"),
+                builder.AddField("Car Lengths".Color("aaaaaa"),
                     builder.ButtonStrip(strip => {
                         strip.AddButtonSelectable("1", _CarIndex == 1, () => SetCarLengths(1));
                         strip.AddButtonSelectable("2", _CarIndex == 2, () => SetCarLengths(2));

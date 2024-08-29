@@ -22,7 +22,7 @@ public sealed class Uncouple(int carIndex) : ICommand
 public sealed class UncoupleManager : CommandManager<Uncouple>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + 1;
+      
 
         var locomotive = (BaseLocomotive)state["locomotive"]!;
         if (Command!.CarIndex == 0) {
@@ -65,6 +65,7 @@ public sealed class UncoupleManager : CommandManager<Uncouple>
         newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.Anglecock, 0f);
 
         newEndCar.ApplyEndGearChange(newEndCarEndToDisconnect, Car.EndGearStateKey.CutLever, 1f);
+        state["wage"] = (int)state["wage"] + 1;
     }
 
     private int? _CarIndex;

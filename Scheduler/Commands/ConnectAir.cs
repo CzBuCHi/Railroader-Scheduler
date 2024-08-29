@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using Game.Messages;
-using Game.Progression;
 using Game.State;
 using Model;
 using Scheduler.HarmonyPatches;
@@ -18,8 +17,6 @@ public sealed class ConnectAir : ICommand
 public sealed class ConnectAirManager : CommandManager<ConnectAir>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + 1;
-
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         foreach (var car in locomotive.set!.Cars!) {
@@ -27,6 +24,8 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
             ConnectAirOnEnd(car, Car.LogicalEnd.B);
         }
 
+
+        state["wage"] = (int)state["wage"] + 1;
         yield break;
 
         static void ConnectAirOnEnd(Car car, Car.LogicalEnd end) {
@@ -36,8 +35,6 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
                 StateManager.ApplyLocal(new SetGladhandsConnected(car.id!, adjacent!.id!, true));
             }
         }
-
-        
     }
 
     protected override object TryCreateCommand() {

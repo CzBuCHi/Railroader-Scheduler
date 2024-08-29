@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Model;
 using Scheduler.Extensions;
 using Serilog;
 using Track;
-using static UI.SwitchList.OpsCarList.Entry;
 using Location = Track.Location;
 
 namespace Scheduler;
@@ -17,6 +15,11 @@ public static class SchedulerUtility
     public static bool CanOperateSwitch(TrackNode node, BaseLocomotive locomotive) {
         if (node is { IsCTCSwitch: true, IsCTCSwitchUnlocked: false }) {
             global::UI.Console.Console.shared!.AddLine($"AI Engineer {Hyperlink.To(locomotive)}: Switch controlled and locked by CTC. Call dispatcher.");
+            return false;
+        }
+
+        if (TrainController.Shared.CarOnSwitch(node, null!, out var car)) {
+            global::UI.Console.Console.shared!.AddLine($"AI Engineer {Hyperlink.To(locomotive)}: Switch occupied by car. Clear {car.DisplayName} first.");
             return false;
         }
 

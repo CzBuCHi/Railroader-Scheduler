@@ -22,7 +22,7 @@ public sealed class SetHandbrake(int carIndex) : ICommand
 public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + 1;
+     
 
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
@@ -39,6 +39,7 @@ public sealed class SetHandbrakeManager : CommandManager<SetHandbrake>
         }
 
         car!.SetHandbrake(true);
+        state["wage"] = (int)state["wage"] + 1;
     }
 
     private int? _CarIndex;

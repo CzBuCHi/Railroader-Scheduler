@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using GalaSoft.MvvmLight.Messaging;
+using Game.Messages;
+using Game.State;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Messages;
@@ -39,7 +41,7 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
     public override bool ShowTrackSwitchVisualizers => true;
 
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + 1;
+      
 
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
@@ -61,6 +63,7 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
         switches[node.id] = node.isThrown;
 
         node.isThrown = Command.IsThrown;
+        state["wage"] = (int)state["wage"] + 1;
     }
 
     private string? _Id;

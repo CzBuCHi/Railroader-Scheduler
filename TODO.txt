@@ -1,7 +1,8 @@
-BUG: can toggle switch that has car on top of it 
 BUG: move backward: wrong side of wagon  or  carindex - 1
-FEAT: execute form current: advance index?
 BUG: move comand do not finish when coupled
 BUG: move after switch: missing fouling distance when entering from 'enter' segment
 BUG: move corutime not stoping when train switched to manual
-FEAT: move to end of track
+BUG: stop before switch not work
+
+TODO: IState machine
+    merge ModifySchedule + ExecuteSchedule ?

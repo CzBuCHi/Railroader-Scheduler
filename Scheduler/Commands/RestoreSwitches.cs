@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using Model;
 using Scheduler.Utility;
 using Track;
 
@@ -14,7 +15,9 @@ public sealed class RestoreSwitches : ICommand
 public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-        state["wage"] = (int)state["wage"] + 1;
+   
+
+        var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         state.TryGetValue("switches", out var value);
         if (value == null) {
@@ -28,10 +31,15 @@ public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
                 yield break;
             }
 
+            if (!SchedulerUtility.CanOperateSwitch(node, locomotive)) {
+                yield break;
+            }
+
             node.isThrown = pair.Value;
         }
 
         switches.Clear();
+        state["wage"] = (int)state["wage"] + 1;
     }
 
     protected override object TryCreateCommand() {
