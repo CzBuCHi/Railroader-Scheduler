@@ -47,6 +47,7 @@ internal sealed class ScheduleRunner : MonoBehaviour
             }
 
             if (state.TryGetValue("stop", out var value) && (bool)value) {
+                global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}] Schedule execution canceled.");
                 break;
             }
         }

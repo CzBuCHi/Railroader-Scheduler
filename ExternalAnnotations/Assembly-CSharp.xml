@@ -3,6 +3,12 @@
   <member name="F:Track.Location.segment">
     <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
   </member>
+  <member name="M:Model.AI.AutoEngineerPersistence.ObserveOrders(System.Action{Model.AI.Orders},System.Boolean)">
+    <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
+  </member>
+  <member name="M:TextStyles.Color(System.String,System.String)">
+    <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
+  </member>
   <member name="M:Track.Graph.DecodeSwitchAt(Track.TrackNode,Track.TrackSegment@,Track.TrackSegment@,Track.TrackSegment@)">
     <attribute ctor="M:JetBrains.Annotations.ContractAnnotationAttribute.#ctor(System.String)" arguments="=&gt; false,enter:null,a:null,b:null;=&gt; true,enter:NotNull,a:NotNull,b:NotNull" />
   </member>

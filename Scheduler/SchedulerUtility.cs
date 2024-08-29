@@ -43,7 +43,7 @@ public static class SchedulerUtility
 
 
     public static FinalRoute? GetDistanceToTrackEnd(Location startLocation, Func<TrackNode, bool> isFinalNode) {
-        _Logger.Information("GetDistanceToSwitch: from " + startLocation + " to end of track");
+       
 
         var segment = startLocation.segment;
         Queue<QueueItem> queue = new();
@@ -124,10 +124,12 @@ public static class SchedulerUtility
     }
 
     public static FinalRoute? GetDistanceToTrackEnd(Location startLocation) {
+        _Logger.Information($"GetDistanceToSwitch: from {startLocation} to end of track");
         return GetDistanceToTrackEnd(startLocation, node => Graph.Shared.NodeIsDeadEnd(node, out _)); 
     }
 
     public static FinalRoute? GetDistanceToSwitch(Location startLocation, TrackNode targetSwitch) {
+        _Logger.Information($"GetDistanceToSwitch: from {startLocation} to switch '{targetSwitch.id}'");
         return GetDistanceToTrackEnd(startLocation, node => node == targetSwitch);
     }
 

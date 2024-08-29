@@ -166,25 +166,25 @@ public sealed class SchedulerDialog
         builder.AddField("Commands",
             builder.ButtonStrip(strip => {
                 var hasCommands = modifySchedule.Schedule.Commands.Count > 0;
-                var isFirst = (hasCommands && modifySchedule.CommandIndex == 0);
-                var isLast = (hasCommands && modifySchedule.CommandIndex == modifySchedule.Schedule.Commands.Count - 1);
+                var backwardDisabled = !(hasCommands && modifySchedule.CommandIndex > 0);
+                var forwardDisabled = !(hasCommands && modifySchedule.CommandIndex < modifySchedule.Schedule.Commands.Count - 1);
 
                 SchedulerPlugin.DebugMessage(
                     $"count: {modifySchedule.Schedule.Commands.Count}, " +
                     $"commandIndex: {modifySchedule.CommandIndex}, " +
-                    $"notFirst: {isFirst}, " +
-                    $"notLast: {isLast}"
+                    $"backwardDisabled: {backwardDisabled}, " +
+                    $"forwardDisabled: {forwardDisabled}"
                 );
 
                 strip.AddButton("Add", AddCommandBegin);
                 strip.AddButton("Remove", RemoveCommand).Disable(modifySchedule.Schedule.Commands.Count == 0);
                 strip.AddButton("Modify", ModifyCommandBegin).Disable(modifySchedule.Schedule.Commands.Count == 0);
-                strip.AddButton("<<", FirstCommand).Disable(isFirst);
-                strip.AddButton("<", PrevCommand).Disable(isFirst);
-                strip.AddButton(">", NextCommand).Disable(isLast);
-                strip.AddButton(">>", LastCommand).Disable(isLast);
-                strip.AddButton("Move up", MoveUpCommand).Disable(isFirst);
-                strip.AddButton("Move down", MoveDownCommand).Disable(isLast);
+                strip.AddButton("<<", FirstCommand).Disable(backwardDisabled);
+                strip.AddButton("<", PrevCommand).Disable(backwardDisabled);
+                strip.AddButton(">", NextCommand).Disable(forwardDisabled);
+                strip.AddButton(">>", LastCommand).Disable(forwardDisabled);
+                strip.AddButton("Move up", MoveUpCommand).Disable(backwardDisabled);
+                strip.AddButton("Move down", MoveDownCommand).Disable(forwardDisabled);
             })!
         );
 

@@ -1,8 +1,31 @@
+
+BUG: allow multiple LocationVisualizer instances (used in move command)
+
+
+BUG: stop before switch 
+
+
 BUG: move backward: wrong side of wagon  or  carindex - 1
 BUG: move comand do not finish when coupled
 BUG: move after switch: missing fouling distance when entering from 'enter' segment
 BUG: move corutime not stoping when train switched to manual
-BUG: stop before switch not work
+
 
 TODO: IState machine
     merge ModifySchedule + ExecuteSchedule ?
+    
+BUG: Execute from car inspector 
+
+[22:31:45.06 ERR Unity] An uncaught exception occured.
+System.ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.
+Parameter name: index
+  at System.Collections.Generic.List`1[T].get_Item (System.Int32 index) [0x00009] in <51fded79cd284d4d911c5949aff4cb21>:0 
+  at Scheduler.HarmonyPatches.CarInspectorPatches+<>c__DisplayClass2_0.<PopulateAIPanel>b__4 () [0x00000] in C:\projects\Railroader-Scheduler\Scheduler\HarmonyPatches\CarInspectorPatches.cs:43 
+  at UnityEngine.Events.InvokableCall.Invoke () [0x00010] in <e422ced3d0f64bb29423e8338d57bc04>:0 
+  at UnityEngine.Events.UnityEvent.Invoke () [0x00022] in <e422ced3d0f64bb29423e8338d57bc04>:0 
+  at UnityEngine.UI.Button.Press () [0x0001c] in <5ad740aa0479498aad3f14045f823f51>:0 
+  at UnityEngine.UI.Button.OnPointerClick (UnityEngine.EventSystems.PointerEventData eventData) [0x00009] in <5ad740aa0479498aad3f14045f823f51>:0 
+  at UnityEngine.EventSystems.ExecuteEvents.Execute (UnityEngine.EventSystems.IPointerClickHandler handler, UnityEngine.EventSystems.BaseEventData eventData) [0x00007] in <5ad740aa0479498aad3f14045f823f51>:0 
+  at UnityEngine.EventSystems.ExecuteEvents.Execute[T] (UnityEngine.GameObject target, UnityEngine.EventSystems.BaseEventData eventData, UnityEngine.EventSystems.ExecuteEvents+EventFunction`1[T1] functor) [0x00067] in <5ad740aa0479498aad3f14045f823f51>:0 
+
+

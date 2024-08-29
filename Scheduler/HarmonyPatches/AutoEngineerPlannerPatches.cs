@@ -24,4 +24,8 @@ public static class AutoEngineerPlannerPatches
             __instance.SetManualStopDistance(command.Distance.Value);
         }
     }
+
+    public static float? GetManualStopDistance(this AutoEngineerPlanner autoEngineerPlanner) {
+        return (float?)AccessTools.Field(typeof(AutoEngineerPlanner), "_manualStopDistance").GetValue(autoEngineerPlanner);
+    }
 }
