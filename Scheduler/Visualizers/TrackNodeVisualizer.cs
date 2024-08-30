@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Security.Cryptography;
 using Scheduler.Commands;
 using Track;
 using UnityEngine;
@@ -46,6 +47,6 @@ internal sealed class TrackNodeVisualizer : MonoBehaviour
 
     private IEnumerator Routine() {
         yield return new WaitForSecondsRealtime(10f);
-        _LineRenderer!.enabled = false;
+        Destroy(gameObject);
     }
 }

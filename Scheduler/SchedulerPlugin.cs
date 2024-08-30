@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
 using HarmonyLib;
@@ -12,7 +13,6 @@ using Serilog;
 using Track;
 using UI.Builder;
 using UnityEngine;
-using UnityEngine.Windows;
 using ILogger = Serilog.ILogger;
 using Object = UnityEngine.Object;
 
@@ -66,9 +66,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     }
 
     private static void OnMapDidUnload(MapDidUnloadEvent obj) {
-        TrackNodeVisualizer.Shared = null!;
-        SchedulerDialog.Shared = null!;
-        LocationVisualizer.Shared = null!;
+       DestroyVisualizers();
     }
 
     private static TrackNode? _SelectedSwitch;
@@ -109,21 +107,34 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         }
     }
 
+    private static readonly List<GameObject> _Visualizers = new List<GameObject>();
+
     private static void CreateVisualizers() {
         var go = new GameObject();
         go.AddComponent<TrackNodeVisualizer>();
-
-        var go2 = new GameObject();
-        go2.AddComponent<LocationVisualizer>();
+        _Visualizers.Add(go);
         
         foreach (var trackNode in Graph.Shared.Nodes) {
             if (!Graph.Shared.IsSwitch(trackNode)) {
                 continue;
             }
 
-            var trackNodeVisualizer = new GameObject("TrackSwitchVisualizer");
-            trackNodeVisualizer.transform.SetParent(trackNode.transform);
-            trackNodeVisualizer.AddComponent<TrackSwitchVisualizer>();
+            var go2 = new GameObject("TrackSwitchVisualizer");
+            go2.transform.SetParent(trackNode.transform);
+            go2.AddComponent<TrackSwitchVisualizer>();
+            _Visualizers.Add(go2);
         }
+    }
+
+    private static void DestroyVisualizers() {
+        foreach (var visualizer in _Visualizers) {
+            Object.Destroy(visualizer);
+        }
+    }
+
+    public static void ShowLocationVisualizer(Location location, Color color) {
+        var go = new GameObject();
+        var visualizer = go.AddComponent<LocationVisualizer>();
+        visualizer.Show(location, color);
     }
 }

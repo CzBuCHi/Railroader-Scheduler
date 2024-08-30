@@ -71,8 +71,8 @@ public sealed class MoveManager : CommandManager<Move>
         var (startLocation, targetLocation, distance) = GetTargetLocationAndDistance(locomotive);
 
         if (SchedulerPlugin.Settings.Debug) {
-            LocationVisualizer.Shared.Show(startLocation, Color.green);
-            LocationVisualizer.Shared.Show(targetLocation, Color.cyan);
+            SchedulerPlugin.ShowLocationVisualizer(startLocation, Color.green);
+            SchedulerPlugin.ShowLocationVisualizer(targetLocation, Color.cyan);
         }
 
         _Logger.Information($"  move distance {distance}m");
@@ -127,7 +127,7 @@ public sealed class MoveManager : CommandManager<Move>
             case StopMode.CarLengths:
                 startLocation = Command!.Direction == Direction.Forward ? locomotive.LocationR.Flipped() : locomotive.LocationF;
                 distance = Command.CarLengths!.Value * 12.2f;
-                targetLocation = Graph.Shared.LocationByMoving(startLocation, distance);
+                targetLocation = Graph.Shared.LocationByMoving(startLocation, (Command!.Direction == Direction.Forward ? 1 : -1) * distance);
                 break;
             default:
                 throw new NotImplementedException();

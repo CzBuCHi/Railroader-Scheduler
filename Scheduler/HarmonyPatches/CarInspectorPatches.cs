@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Security.Principal;
 using CarInspectorResizer.Behaviors;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -32,6 +33,11 @@ public static class CarInspectorPatches
 
         var schedules = SchedulerPlugin.Settings.Schedules.Select(o => o.Name).ToList();
         if (schedules.Count > 0) {
+            var index = ____car.KeyValueObject!.Get(SchedulerKey).IntValue;
+            if (index < 0 || index >= schedules.Count) {
+                ____car.KeyValueObject.Set(SchedulerKey, Value.Int(0));
+            }
+
             builder.AddField("Scheduler",
                 builder.AddDropdown(schedules,
                     ____car.KeyValueObject!.Get(SchedulerKey).IntValue,
@@ -40,7 +46,9 @@ public static class CarInspectorPatches
             );
             builder.AddField("",
                 builder.ButtonStrip(strip => {
-                    strip.AddButton("Execute", () => SchedulerPlugin.Runner.ExecuteSchedule(SchedulerPlugin.Settings.Schedules[____car.KeyValueObject!.Get(SchedulerKey).IntValue]!, (BaseLocomotive)____car));
+                    strip.AddButton("Execute", () => {
+                        SchedulerPlugin.Runner.ExecuteSchedule(SchedulerPlugin.Settings.Schedules[____car.KeyValueObject!.Get(SchedulerKey).IntValue]!, (BaseLocomotive)____car);
+                    });
                     strip.AddButton("Manage", () => SchedulerDialog.Shared.ShowWindow((BaseLocomotive)____car));
                 })!
             );        

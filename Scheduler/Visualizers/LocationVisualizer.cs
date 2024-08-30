@@ -7,12 +7,6 @@ namespace Scheduler.Visualizers;
 
 internal sealed class LocationVisualizer : MonoBehaviour
 {
-    public static LocationVisualizer Shared = null!;
-
-    public void Awake() {
-        Shared = this;
-    }
-
     private static readonly Material _LineMaterial = new(Shader.Find("Universal Render Pipeline/Lit")!);
 
     private LineRenderer? _LineRenderer;
