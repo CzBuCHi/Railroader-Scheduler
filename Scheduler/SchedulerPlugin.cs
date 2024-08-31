@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Railloader;
 using Scheduler.Messages;
-using Scheduler.UI;
 using Scheduler.Utility;
 using Scheduler.Visualizers;
 using Serilog;
@@ -15,6 +16,7 @@ using UI.Builder;
 using UnityEngine;
 using ILogger = Serilog.ILogger;
 using Object = UnityEngine.Object;
+using SchedulerDialog = Scheduler.UI.SchedulerDialog;
 
 namespace Scheduler;
 
@@ -36,6 +38,14 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         Context = context;
         UiHelper = uiHelper;
         Settings = Context.LoadSettingsData<Settings>(ModIdentifier) ?? new Settings();
+        VerifySettings();
+    }
+
+    private void VerifySettings() {
+        if (Settings.Schedules.Any(o => o == null)) {
+            _Logger.Error("Failed to load scheduler settings. Using defaults.");
+            Settings = new Settings();
+        }
     }
 
     public override void OnEnable() {
@@ -43,11 +53,11 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         var harmony = new Harmony(ModIdentifier);
         harmony.PatchAll();
 
-        Messenger.Default!.Register(this, new Action<MapDidLoadEvent>(OnMapDidLoad));
+        Messenger.Default.Register(this, new Action<MapDidLoadEvent>(OnMapDidLoad));
         Messenger.Default.Register(this, new Action<MapDidUnloadEvent>(OnMapDidUnload));
 
         var go = new GameObject(ModIdentifier);
-        Runner = go.AddComponent<ScheduleRunner>()!;
+        Runner = go.AddComponent<ScheduleRunner>();
     }
 
     public override void OnDisable() {
@@ -55,9 +65,9 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         var harmony = new Harmony(ModIdentifier);
         harmony.UnpatchAll();
 
-        Messenger.Default!.Unregister(this);
+        Messenger.Default.Unregister(this);
 
-        Object.Destroy(Runner.gameObject!);
+        Object.Destroy(Runner.gameObject);
         Runner = null!;
     }
 
@@ -66,6 +76,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     }
 
     private static void OnMapDidUnload(MapDidUnloadEvent obj) {
+        SchedulerDialog.Shared = null!;
        DestroyVisualizers();
     }
 
@@ -103,11 +114,11 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
             }
 
             _SelectedSwitch = value;
-            Messenger.Default!.Send(new SelectedSwitchChanged());
+            Messenger.Default.Send(new SelectedSwitchChanged());
         }
     }
 
-    private static readonly List<GameObject> _Visualizers = new List<GameObject>();
+    private static readonly List<GameObject> _Visualizers = new();
 
     private static void CreateVisualizers() {
         var go = new GameObject();

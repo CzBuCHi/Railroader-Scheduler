@@ -1,5 +1,5 @@
-﻿using System.Linq;
-using System.Security.Principal;
+﻿using System;
+using System.Linq;
 using CarInspectorResizer.Behaviors;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -23,7 +23,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "Populate")]
     public static void Populate(ref Window ____window) {
         var windowAutoHeight = ____window.gameObject.GetComponent<CarInspectorAutoHeightBehavior>()!;
-        windowAutoHeight.ExpandTab("orders", 75);
+        windowAutoHeight.ExpandTab("orders", 105);
     }
 
     [HarmonyPostfix]
@@ -51,7 +51,8 @@ public static class CarInspectorPatches
                     });
                     strip.AddButton("Manage", () => SchedulerDialog.Shared.ShowWindow((BaseLocomotive)____car));
                 })!
-            );        
+            );
+            builder.AddField("Current command", () => ____car.KeyValueObject["ScheduleRunner:CurrentCommand"], UIPanelBuilder.Frequency.Periodic);
         } else {
             builder.AddField("Scheduler",
                 builder.ButtonStrip(strip => {

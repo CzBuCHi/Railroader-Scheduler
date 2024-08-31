@@ -1,6 +1,7 @@
 F:Track.Location.segment
 M:Model.AI.AutoEngineerPersistence.ObserveOrders(System.Action{Model.AI.Orders},System.Boolean)
 M:TextStyles.Color(System.String,System.String)
+M:TextStyles.ColorRed(System.String)
 M:Track.TrackSegment.NodeForEnd(Track.TrackSegment.End)
 M:UI.Builder.UIPanelBuilder.AddButton(System.String,System.Action)
 P:GalaSoft.MvvmLight.Messaging.Messenger.Default

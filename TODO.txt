@@ -12,3 +12,5 @@ BUG: move corutime not stoping when train switched to manual
 
 
     
+TODO: new command: Notification(string message)
+    - ? wait until player clikc on it?

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using GalaSoft.MvvmLight.Messaging;
 using Game.State;
 using Model;
-using Scheduler.Commands;
 using Scheduler.Data;
 using Scheduler.Messages;
 using Serilog;
@@ -17,6 +16,11 @@ internal sealed class ScheduleRunner : MonoBehaviour
     private static readonly ILogger _Logger = Log.ForContext(typeof(ScheduleRunner))!;
 
     public void ExecuteSchedule(Schedule schedule, BaseLocomotive locomotive, int firstCommand = 0) {
+        if (!schedule.IsValid) {
+            global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}] Schedule has invalid commands.");
+            return;
+        }
+
         StartCoroutine(ExecuteCoroutine(schedule, locomotive, firstCommand));
     }
 
@@ -31,17 +35,21 @@ internal sealed class ScheduleRunner : MonoBehaviour
         };
 
         for (var i = firstCommand; i < schedule.Commands.Count; i++) {
-            Messenger.Default.Send(new CommandIndexChanged { CommandIndex = i });
+			Messenger.Default.Send(new CommandIndexChanged { CommandIndex = i });
+
+            locomotive.KeyValueObject["ScheduleRunner:CurrentCommand"] = schedule.Commands[i].DisplayText;
 
             state["index"] = i;
             var command = schedule.Commands[i]!;
+            
+            _Logger.Information("Executing command: " + command.DisplayText);
 
-            if (command is DeserializationFailed) {
-                global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}] Cannot execute command.");
-                yield break;
-            }
+            SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] {command.DisplayText}");
 
-            var wait = ExecuteCommand(command, state);
+            var manager = ScheduleCommands.GetManager(command.GetType());
+            manager.Command = command;
+
+            var wait = manager.Execute(state);
             while (wait.MoveNext()) {
                 yield return wait.Current;
             }
@@ -52,19 +60,9 @@ internal sealed class ScheduleRunner : MonoBehaviour
             }
         }
 
+        locomotive.KeyValueObject["ScheduleRunner:CurrentCommand"] = "";
         var wage = (int)state["wage"];
 
         StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, new EntityReference(EntityType.Car, locomotive.id!), "Scheduler: " + schedule.Name);
-    }
-
-    private static IEnumerator ExecuteCommand(ICommand command, Dictionary<string, object> state) {
-        _Logger.Information("Executing command: " + command.DisplayText);
-
-        var locomotive = (BaseLocomotive)state["locomotive"]!;
-        SchedulerPlugin.DebugMessage($"AI Engineer [{Hyperlink.To(locomotive)}] {command.DisplayText}");
-
-        var manager = ScheduleCommands.GetManager(command.GetType());
-        manager.Command = command;
-        return manager.Execute(state);
     }
 }

@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
+using Scheduler.Commands;
 using Scheduler.Utility;
 
 namespace Scheduler.Data;
@@ -10,14 +12,10 @@ public sealed class Schedule
 
     public List<ICommand> Commands { get; } = new();
 
-    public Schedule Clone() {
-        var schedule = new Schedule { Name = Name };
-        foreach (var command in Commands) {
-            var json = JsonConvert.SerializeObject(command);
-            var clone = JsonConvert.DeserializeObject<ICommand>(json)!;
-            schedule.Commands.Add(clone);
-        }
+    public bool IsValid => Commands.Any(o => o is DeserializationFailed);
 
-        return schedule;
+    public Schedule Clone() {
+        var json = JsonConvert.SerializeObject(this);
+        return JsonConvert.DeserializeObject<Schedule>(json)!;
     }
 }

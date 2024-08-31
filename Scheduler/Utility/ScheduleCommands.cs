@@ -50,4 +50,9 @@ public static class ScheduleCommands
         var commandType = CommandTypes[index];
         return GetManager(commandType);
     }
+
+    public static int GetManagerIndex(ICommand command) {
+        var commandType = command.GetType();
+        return Array.IndexOf(CommandTypes, commandType);
+    }
 }
