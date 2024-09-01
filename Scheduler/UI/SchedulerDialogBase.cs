@@ -2,7 +2,6 @@
 using GalaSoft.MvvmLight.Messaging;
 using Model;
 using Scheduler.Messages;
-using Serilog;
 using UI.Builder;
 using UI.Common;
 
@@ -23,8 +22,6 @@ public abstract class SchedulerDialogBase
         }
     }
 
-    private static readonly ILogger _Logger = Log.ForContext(typeof(SchedulerDialog))!;
-
     private readonly Window _Window = SchedulerPlugin.UiHelper.CreateWindow(800, 500, Window.Position.Center);
 
     protected SchedulerDialogBase() {
@@ -41,8 +38,6 @@ public abstract class SchedulerDialogBase
     }
 
     public void ShowWindow(BaseLocomotive locomotive) {
-        _Logger.Information("BuildWindow");
-
         SchedulerPlugin.UiHelper.PopulateWindow(_Window, BuildWindow(locomotive));
         if (!_Window.IsShown) {
             _Window.ShowWindow();

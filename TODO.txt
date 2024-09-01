@@ -1,16 +1,9 @@
-TODO: IState machine
-    merge ModifySchedule + ExecuteSchedule ?
-
-
 BUG: stop before switch 
 
 BUG: move backward: wrong side of wagon  or  carindex - 1
 BUG: move comand do not finish when coupled
 BUG: move after switch: missing fouling distance when entering from 'enter' segment
-BUG: move corutime not stoping when train switched to manual
-
-
-
     
 TODO: new command: Notification(string message)
     - ? wait until player clikc on it?
+    

@@ -24,7 +24,6 @@ public sealed class ConnectAirManager : CommandManager<ConnectAir>
             ConnectAirOnEnd(car, Car.LogicalEnd.B);
         }
 
-
         state["wage"] = (int)state["wage"] + 1;
         yield break;
 

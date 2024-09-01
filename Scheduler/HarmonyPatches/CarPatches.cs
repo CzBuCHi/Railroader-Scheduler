@@ -11,7 +11,7 @@ using Model;
 public static class CarPatches {
 
     [HarmonyReversePatch]
-    [HarmonyPatch(typeof(Car), "KeyValueKeyFor")]
+    [HarmonyPatch(typeof(Car), nameof(KeyValueKeyFor))]
     public static string KeyValueKeyFor(Car.EndGearStateKey key, Car.End end) {
         throw new NotImplementedException("It's a stub");
     }

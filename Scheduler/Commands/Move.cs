@@ -8,7 +8,6 @@ using Model.AI;
 using Newtonsoft.Json;
 using Scheduler.HarmonyPatches;
 using Scheduler.Utility;
-using Scheduler.Visualizers;
 using Serilog;
 using Track;
 using UI.Builder;
@@ -173,7 +172,7 @@ public sealed class MoveManager : CommandManager<Move>
 
     public override bool ShowTrackSwitchVisualizers { get; } = false;
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+    protected override void ReadProperty(string propertyName, JsonReader reader, JsonSerializer serializer) {
         switch (propertyName) {
             case nameof(Move.Direction):
                 _Direction = (Direction)serializer.Deserialize<int>(reader);

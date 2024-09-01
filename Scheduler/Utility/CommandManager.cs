@@ -40,7 +40,7 @@ public abstract class CommandManager
     /// <param name="propertyName">Name of property to read.</param>
     /// <param name="reader">Json reader.</param>
     /// <param name="serializer">Json serializer.</param>
-    protected virtual void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+    protected virtual void ReadProperty(string propertyName, JsonReader reader, JsonSerializer serializer) {
     }
 
     /// <summary> Serialize properties of current command to <paramref name="writer"/>. </summary>
@@ -51,7 +51,7 @@ public abstract class CommandManager
     internal void Deserialize(JsonReader reader, JsonSerializer serializer) {
         while (reader.Read()) {
             if (reader.TokenType == JsonToken.PropertyName) {
-                var propertyName = (string?)reader.Value;
+                var propertyName = (string)reader.Value!;
                 reader.Read();
                 ReadProperty(propertyName, reader, serializer);
             }

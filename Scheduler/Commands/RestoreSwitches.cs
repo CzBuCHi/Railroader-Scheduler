@@ -15,8 +15,6 @@ public sealed class RestoreSwitches : ICommand
 public sealed class RestoreSwitchesManager : CommandManager<RestoreSwitches>
 {
     public override IEnumerator Execute(Dictionary<string, object> state) {
-   
-
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         state.TryGetValue("switches", out var value);

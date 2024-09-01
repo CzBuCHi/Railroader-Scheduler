@@ -24,6 +24,9 @@
   <member name="P:GalaSoft.MvvmLight.Messaging.Messenger.Default">
     <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
   </member>
+  <member name="P:Game.Notices.NoticeManager.Shared">
+    <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
+  </member>
   <member name="P:Game.State.StateManager.Shared">
     <attribute ctor="M:JetBrains.Annotations.NotNullAttribute.#ctor" />
   </member>

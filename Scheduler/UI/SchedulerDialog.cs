@@ -2,9 +2,15 @@
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Model;
+using Scheduler.Commands;
 using Scheduler.Data;
 using Scheduler.Messages;
+using Serilog;
+using Serilog.Core;
 using UI.Builder;
+using UnityEngine;
+using UnityEngine.UI;
+using ILogger = Serilog.ILogger;
 
 namespace Scheduler.UI;
 
@@ -15,12 +21,14 @@ public sealed class SchedulerDialog : SchedulerDialogBase
         set => Instance = value;
     }
 
+    private static readonly ILogger _Logger = Log.ForContext(typeof(SchedulerDialog))!;
+
     private readonly SchedulePanel _SchedulePanel = new();
     private readonly UIState<string?> _SelectedScheduleName = new(null);
+    private Schedule? _Schedule;
 
     private UiState _State = UiState.Initial;
 
-    private string? _ScheduleName;
     private string _NewScheduleName = "";
     private bool _NewScheduleNameConflict;
 
@@ -31,8 +39,11 @@ public sealed class SchedulerDialog : SchedulerDialogBase
         switch (_State) {
             case UiState.Initial:
                 builder.ButtonStrip(strip => {
+                    builder.RebuildOnEvent<RebuildTopButtonStrip>();
+
                     var hasNoScheduleSelected = _SelectedScheduleName.Value == null;
-                    var selectedScheduleNotValid = SchedulerPlugin.Settings.Schedules.FirstOrDefault(o => o.Name == _SelectedScheduleName.Value)?.IsValid != true;
+                    var schedule = SchedulerPlugin.Settings.Schedules.FirstOrDefault(o => o.Name == _SelectedScheduleName.Value);
+                    var selectedScheduleNotValid = schedule?.IsValid != true;
 
                     strip.AddButton("Create", CreateSchedule);
                     strip.AddButton("Remove", SetUiState(UiState.Remove)).Disable(hasNoScheduleSelected);
@@ -47,39 +58,42 @@ public sealed class SchedulerDialog : SchedulerDialogBase
 
             case UiState.Create:
                 builder.AddSection("Create new schedule", section => { 
-                    section.AddField("Schedule Name", builder.AddInputField(_NewScheduleName, UpdateNewScheduleName, characterLimit: 50)!);
+                    section.AddField("Schedule Name", builder.AddInputField(_NewScheduleName, UpdateNewScheduleName(section), characterLimit: 50)!);
                     if (_NewScheduleNameConflict) {
                         section.AddField("Error".ColorRed(), "Given name is already used by another schedule.");
                     }
-                    BuildBottomButtonStrip(section);
                 });
+                BuildBottomButtonStrip(builder);
                 break;
 
             case UiState.Rename:
-                builder.AddSection($"Rename schedule '{_ScheduleName}'", section => { 
-                    section.AddField("Schedule Name", builder.AddInputField(_NewScheduleName, UpdateNewScheduleName, characterLimit: 50)!);
+                builder.AddSection($"Rename schedule '{_SelectedScheduleName.Value}'", section => { 
+                    section.AddField("Schedule Name", builder.AddInputField(_NewScheduleName, UpdateNewScheduleName(section), characterLimit: 50)!);
                     if (_NewScheduleNameConflict) {
                         section.AddField("Error".ColorRed(), "Given name is already used by another schedule.");
                     }
-                    BuildBottomButtonStrip(section);
                 });
+                BuildBottomButtonStrip(builder);
                 break;
 
             case UiState.Remove:
-                builder.AddSection($"Remove schedule '{_ScheduleName}'", BuildBottomButtonStrip);
+                builder.AddSection($"Remove schedule '{_SelectedScheduleName.Value}'");
+                BuildBottomButtonStrip(builder);
                 break;
 
             case UiState.Modify:
-                builder.AddSection($"Modify schedule '{_ScheduleName}'", section => { 
-                    _SchedulePanel.BuildPanel(section, _ScheduleName!, locomotive);
-                    BuildBottomButtonStrip(section);
+                builder.AddSection($"Modify schedule '{_SelectedScheduleName.Value}'", section => { 
+                    _SchedulePanel.BuildPanel(section, _SelectedScheduleName.Value!, locomotive);
                 });
+                BuildBottomButtonStrip(builder);
                 break;
         }
     }
 
     private void BuildBottomButtonStrip(UIPanelBuilder builder) {
         builder.ButtonStrip(strip => {
+            builder.RebuildOnEvent<RebuildBottomButtonStrip>();
+            
             switch (_State) {
                 case UiState.Create:
                     strip.AddButton("Create", ConfirmCreateSchedule).Disable(_NewScheduleNameConflict);
@@ -109,10 +123,9 @@ public sealed class SchedulerDialog : SchedulerDialogBase
             return;
         }
 
-        if (_ScheduleName != schedule.Name) {
-            _ScheduleName = schedule.Name;
-            RebuildScheduleDialog();
-            return;
+        if (_Schedule != schedule) {
+            _Schedule = schedule;
+            RebuildTopButtonStrip();
         }
 
         builder.VScrollView(view => {
@@ -125,11 +138,14 @@ public sealed class SchedulerDialog : SchedulerDialogBase
 
     private void CreateSchedule() {
         _State = UiState.Create;
-        UpdateNewScheduleName($"New schedule #{SchedulerPlugin.Settings.Schedules.Count + 1}");
+        _SelectedScheduleName.Value = null;
+        _NewScheduleName = $"New schedule #{SchedulerPlugin.Settings.Schedules.Count + 1}";
+        _NewScheduleNameConflict = SchedulerPlugin.Settings.Schedules.Any(o => o.Name == _NewScheduleName);
+        RebuildScheduleDialog();
     }
 
     private void RenameSchedule() {
-        _NewScheduleName = _ScheduleName!;
+        _NewScheduleName = _SelectedScheduleName.Value!;
         _State = UiState.Rename;
         RebuildScheduleDialog();
     }
@@ -151,10 +167,13 @@ public sealed class SchedulerDialog : SchedulerDialogBase
         RebuildScheduleDialog();
     }
 
-    private void UpdateNewScheduleName(string newScheduleName) {
-        _NewScheduleName = newScheduleName;
-        _NewScheduleNameConflict = _NewScheduleName != _ScheduleName && SchedulerPlugin.Settings.Schedules.Any(o => o.Name == newScheduleName);
-        RebuildScheduleDialog();
+    private Action<string> UpdateNewScheduleName(UIPanelBuilder builder) {
+        return newScheduleName => {
+            _NewScheduleName = newScheduleName;
+            _NewScheduleNameConflict = _NewScheduleName != _SelectedScheduleName.Value && SchedulerPlugin.Settings.Schedules.Any(o => o.Name == newScheduleName);
+            builder.Rebuild();
+            RebuildBottomButtonStrip();
+        };
     }
 
     private Action SetUiState(UiState state) {
@@ -168,7 +187,12 @@ public sealed class SchedulerDialog : SchedulerDialogBase
         var index = SchedulerPlugin.Settings.Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);
         SchedulerPlugin.Settings.Schedules.RemoveAt(index);
         SchedulerPlugin.SaveSettings();
-        _SelectedScheduleName.Value = null;
+
+        if (index >= SchedulerPlugin.Settings.Schedules.Count) {
+            --index;
+        }
+
+        _SelectedScheduleName.Value = index >= 0 ? SchedulerPlugin.Settings.Schedules[index]!.Name : null;
         _State = UiState.Initial;
         RebuildScheduleDialog();
     }
@@ -185,6 +209,13 @@ public sealed class SchedulerDialog : SchedulerDialogBase
     private static void RebuildScheduleDialog() {
         Messenger.Default.Send(new RebuildScheduleDialog());
     }
+    private static void RebuildTopButtonStrip() {
+        Messenger.Default.Send(new RebuildTopButtonStrip());
+    }
+    private static void RebuildBottomButtonStrip() {
+        Messenger.Default.Send(new RebuildBottomButtonStrip());
+    }
+    
 
     private void ConfirmModifySchedule() {
         var index = SchedulerPlugin.Settings.Schedules.FindIndex(o => o.Name == _SelectedScheduleName.Value);

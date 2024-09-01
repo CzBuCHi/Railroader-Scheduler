@@ -12,7 +12,8 @@ public sealed class Schedule
 
     public List<ICommand> Commands { get; } = new();
 
-    public bool IsValid => Commands.Any(o => o is DeserializationFailed);
+    [JsonIgnore]
+    public bool IsValid => Commands.Count > 0 && Commands.All(o => o is not DeserializationFailed);
 
     public Schedule Clone() {
         var json = JsonConvert.SerializeObject(this);

@@ -26,6 +26,7 @@ public sealed class CommandEditorPanel
 
         var manager = ScheduleCommands.GetManager(_CommandTypeIndex);
         manager.BuildPanel(builder, locomotive);
+        SchedulerPlugin.ShowTrackSwitchVisualizers = manager.ShowTrackSwitchVisualizers;
 
         builder.ButtonStrip(strip => {
             strip.AddButton("Confirm", Confirm(onUpdated));

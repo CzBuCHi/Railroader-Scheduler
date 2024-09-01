@@ -2,8 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using GalaSoft.MvvmLight.Messaging;
-using Game.Messages;
-using Game.State;
 using Model;
 using Newtonsoft.Json;
 using Scheduler.Messages;
@@ -27,11 +25,11 @@ public sealed class SetSwitch(string id, bool isThrown) : ICommand
 public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
 {
     public SetSwitchManager() {
-        Messenger.Default!.Register<SelectedSwitchChanged>(this, OnSelectedSwitchChanged);
+        Messenger.Default.Register<SelectedSwitchChanged>(this, OnSelectedSwitchChanged);
     }
 
     public void Dispose() {
-        Messenger.Default!.Unregister(this);
+        Messenger.Default.Unregister(this);
     }
 
     private void OnSelectedSwitchChanged(SelectedSwitchChanged _) {
@@ -41,8 +39,6 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
     public override bool ShowTrackSwitchVisualizers => true;
 
     public override IEnumerator Execute(Dictionary<string, object> state) {
-      
-
         var locomotive = (BaseLocomotive)state["locomotive"]!;
 
         var node = Graph.Shared.GetNode(Command!.Id);
@@ -77,7 +73,7 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
         writer.WriteValue(Command!.IsThrown);
     }
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+    protected override void ReadProperty(string propertyName, JsonReader reader, JsonSerializer serializer) {
         if (propertyName == nameof(SetSwitch.Id)) {
             _Id = serializer.Deserialize<string>(reader);
         }
@@ -105,18 +101,10 @@ public sealed class SetSwitchManager : CommandManager<SetSwitch>, IDisposable
     }
 
     public override void BuildPanel(UIPanelBuilder builder, BaseLocomotive locomotive) {
+        _IsThrown ??= false;
+
         builder.RebuildOnEvent<SelectedSwitchChanged>();
-        builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => _Id = o, "You can select Id by clicking on switch")!);
-        builder.AddField("Reversed", builder.AddToggle(() => _IsThrown == true, o => SetToggle(ref _IsThrown, o))!);
-        return;
-
-        void SetToggle(ref bool? field, bool value) {
-            if (field == value) {
-                return;
-            }
-
-            field = value;
-            builder.Rebuild();
-        }
+        builder.AddField("Switch", builder.AddInputField(_Id ?? "", o => { }, "You can select Id by clicking on switch")!);
+        builder.AddField("Reversed", builder.AddToggle(() => _IsThrown == true, o => _IsThrown = o)!);
     }
 }

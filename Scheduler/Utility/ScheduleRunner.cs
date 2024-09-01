@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using GalaSoft.MvvmLight.Messaging;
+using Game.Notices;
 using Game.State;
 using Model;
 using Scheduler.Data;
@@ -63,6 +64,9 @@ internal sealed class ScheduleRunner : MonoBehaviour
         locomotive.KeyValueObject["ScheduleRunner:CurrentCommand"] = "";
         var wage = (int)state["wage"];
 
-        StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, new EntityReference(EntityType.Car, locomotive.id!), "Scheduler: " + schedule.Name);
+        var entityReference = new EntityReference(EntityType.Car, locomotive.id!);
+        StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, entityReference, "Scheduler: " + schedule.Name);
+
+        NoticeManager.Shared.PostEphemeral(entityReference, "Scheduler", "Completed");
     }
 }

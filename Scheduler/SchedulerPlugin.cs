@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
 using HarmonyLib;
@@ -32,7 +33,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     internal static Settings Settings { get; private set; } = null!;
     internal static ScheduleRunner Runner { get; private set; } = null!;
 
-    private readonly ILogger _Logger = Log.ForContext(typeof(SchedulerPlugin))!;
+    private static readonly ILogger _Logger = Log.ForContext(typeof(SchedulerPlugin))!;
 
     public SchedulerPlugin(IModdingContext context, IUIHelper uiHelper) {
         Context = context;
@@ -104,7 +105,18 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
         }
     }
 
-    public static bool ShowTrackSwitchVisualizers { get; set; }
+    public static bool ShowTrackSwitchVisualizers {
+        get => _ShowTrackSwitchVisualizers;
+        set {
+            if (_ShowTrackSwitchVisualizers == value) {
+                return;
+            }
+
+            _ShowTrackSwitchVisualizers = value;
+            _Logger.Information("ShowTrackSwitchVisualizers: " + value);
+
+        }
+    }
 
     public static TrackNode? SelectedSwitch {
         get => _SelectedSwitch;
@@ -119,6 +131,7 @@ public sealed class SchedulerPlugin : SingletonPluginBase<SchedulerPlugin>, IMod
     }
 
     private static readonly List<GameObject> _Visualizers = new();
+    private static bool _ShowTrackSwitchVisualizers;
 
     private static void CreateVisualizers() {
         var go = new GameObject();

@@ -17,6 +17,9 @@ public static class ScheduleCommands
         Register<SetSwitch, SetSwitchManager>();
         Register<Wait, WaitManager>();
         Register<Move, MoveManager>();
+        Register<NoticeWait, NoticeWaitManager>();
+
+        
 
         Register<DeserializationFailed, DeserializationFailedManager>();
     }

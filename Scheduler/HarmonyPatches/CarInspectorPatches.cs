@@ -20,14 +20,14 @@ public static class CarInspectorPatches
     const string SchedulerKey = "Scheduler:SelectedSchedule";
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(CarInspector), "Populate")]
+    [HarmonyPatch(typeof(CarInspector), nameof(Populate))]
     public static void Populate(ref Window ____window) {
         var windowAutoHeight = ____window.gameObject.GetComponent<CarInspectorAutoHeightBehavior>()!;
-        windowAutoHeight.ExpandTab("orders", 105);
+        windowAutoHeight.ExpandTab("orders", 150);
     }
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
+    [HarmonyPatch(typeof(CarInspector), nameof(PopulateAIPanel))]
     public static void PopulateAIPanel(UIPanelBuilder builder, Car ____car, ref Window ____window) {
         builder.RebuildOnEvent<RebuildCarInspectorAIPanel>();
 

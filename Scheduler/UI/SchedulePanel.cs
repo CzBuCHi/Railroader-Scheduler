@@ -52,9 +52,7 @@ public sealed class SchedulePanel
         );
 
         if (_EditCommand) {
-            builder.AddSection("Edit command", section => { 
-                _EditorPanel.BuildPanel(section, locomotive, Schedule.Commands[_CommandIndex]!, OnCommandUpdated, OnCommandUpdateCanceled);
-            });
+            builder.AddSection("Edit command", section => _EditorPanel.BuildPanel(section, locomotive, Schedule.Commands[_CommandIndex]!, OnCommandUpdated, OnCommandUpdateCanceled));
         } else {
             BuildCommandsView(builder);
         }
@@ -75,12 +73,8 @@ public sealed class SchedulePanel
 
     private void AddCommand() {
         var command = new ConnectAir();
-        if (Schedule.Commands.Count > _CommandIndex) {
-            Schedule.Commands.Insert(_CommandIndex + 1, command);
-        } else {
-            Schedule.Commands.Add(command);
-        }
-
+        Schedule.Commands.Add(command);
+        _CommandIndex = Schedule.Commands.Count - 1;
         ModifyCommand();
     }
 

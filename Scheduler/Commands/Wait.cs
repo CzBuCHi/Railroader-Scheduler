@@ -30,7 +30,7 @@ public sealed class WaitManager : CommandManager<Wait>
         writer.WriteValue(Command!.MilliSeconds);
     }
 
-    protected override void ReadProperty(string? propertyName, JsonReader reader, JsonSerializer serializer) {
+    protected override void ReadProperty(string propertyName, JsonReader reader, JsonSerializer serializer) {
         if (propertyName == nameof(Wait.MilliSeconds)) {
             _MilliSeconds = serializer.Deserialize<float>(reader);
         }

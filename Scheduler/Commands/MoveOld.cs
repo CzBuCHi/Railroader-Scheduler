@@ -1,24 +1,4 @@
-﻿/*using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using GalaSoft.MvvmLight.Messaging;
-using Game.Messages;
-using Model;
-using Model.AI;
-using Newtonsoft.Json;
-using Scheduler.Extensions;
-using Scheduler.Messages;
-using Scheduler.Utility;
-using Scheduler.Visualizers;
-using Serilog;
-using Track;
-using UI.Builder;
-using UI.EngineControls;
-using UnityEngine;
-using ILogger = Serilog.ILogger;
-using Location = Track.Location;
+﻿/*
 
 namespace Scheduler.Commands;
 
