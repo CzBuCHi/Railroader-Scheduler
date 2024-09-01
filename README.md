@@ -112,7 +112,10 @@ Make sure you're using the _Release_ configuration. The build pipeline will then
 
 # Custom commands
 
-You can implement your own command by implementing `ICommand` interface, inheriting `CommandManager<TCommand>` class and registering them in `ScheduleCommands`.
+1. Create you own mod, that is referencing this one
+1. Implement `Scheduler.Utility.ICommand` interface
+1. Inherd `Scheduler.Utility.CommandManager<TCommand>` class 
+1. Register command and manager class by calling `Scheduler.Utility.ScheduleCommands.Register<TCommand, TCommandManager>()` during mod initialization phase.
 
 Implementation of 'Wait' command:
 
