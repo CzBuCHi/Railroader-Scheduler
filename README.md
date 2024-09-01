@@ -9,15 +9,17 @@ The player has the option to create a schedule, and later tell the AI engineer t
 
 # List of currently implemented Commands:
 
--   [Connect Air](#markdown-header-connect-air)
--   [Move](#markdown-header-move)
--   [Notice Wait](#markdown-header-notice-wait)
--   [Release handbrakes](#markdown-header-release-handbrakes)
--   [Restore switches](#markdown-header-restore-switches)
--   [Set handbrake](#markdown-header-set-handbrake)
--   [Set switch](#markdown-header-set-switch)
--   [Uncouple](#markdown-header-uncouple)
--   [Wait](#markdown-header-wit)
+
+
+-   [Connect Air](#user-content-connect-air)
+-   [Move](#user-content-move)
+-   [Notice Wait](#user-content-notice-wait)
+-   [Release handbrakes](#user-content-release-handbrakes)
+-   [Restore switches](#user-content-restore-switches)
+-   [Set handbrake](#user-content-set-handbrake)
+-   [Set switch](#user-content-set-switch)
+-   [Uncouple](#user-content-uncouple)
+-   [Wait](#user-content-wit)
 
 ## Connect Air
 
