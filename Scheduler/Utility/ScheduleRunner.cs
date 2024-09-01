@@ -32,15 +32,17 @@ internal sealed class ScheduleRunner : MonoBehaviour
         var state = new Dictionary<string, object> {
             ["schedule"] = schedule,
             ["locomotive"] = locomotive,
-            ["wage"] = 0
+            ["wage"] = 0,
+            ["index"] = 0
         };
+        
+        while((int)state["index"] < schedule.Commands.Count) {
+            var i = (int)state["index"];
 
-        for (var i = firstCommand; i < schedule.Commands.Count; i++) {
 			Messenger.Default.Send(new CommandIndexChanged { CommandIndex = i });
 
             locomotive.KeyValueObject["ScheduleRunner:CurrentCommand"] = schedule.Commands[i].DisplayText;
 
-            state["index"] = i;
             var command = schedule.Commands[i]!;
             
             _Logger.Information("Executing command: " + command.DisplayText);
@@ -59,13 +61,18 @@ internal sealed class ScheduleRunner : MonoBehaviour
                 global::UI.Console.Console.shared!.AddLine($"AI Engineer [{Hyperlink.To(locomotive)}] Schedule execution canceled.");
                 break;
             }
+
+            state["index"] = i + 1;
         }
 
         locomotive.KeyValueObject["ScheduleRunner:CurrentCommand"] = "";
         var wage = (int)state["wage"];
 
         var entityReference = new EntityReference(EntityType.Car, locomotive.id!);
-        StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, entityReference, "Scheduler: " + schedule.Name);
+
+        if (wage > 0) {
+            StateManager.Shared.ApplyToBalance(-wage, Ledger.Category.WagesAI, entityReference, "Scheduler: " + schedule.Name);
+        }
 
         NoticeManager.Shared.PostEphemeral(entityReference, "Scheduler", "Completed");
     }
